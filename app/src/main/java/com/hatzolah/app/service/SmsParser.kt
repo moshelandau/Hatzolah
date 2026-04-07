@@ -18,52 +18,82 @@ class SmsParser @Inject constructor() {
 
     /**
      * Parses Hatzolah dispatch SMS messages.
+     * Handles both multi-line and single-line (Samsung notification) formats.
      *
-     * Expected format:
-     * KJ EMS D- KY82
-     * 15 Dinev Road #303, Monroe 10950
-     * CALL TYPE: Dislocation
-     * CALLER: 9292830422
-     * CAD: 0405202648
+     * Format:
+     * KJ EMS D- KY14
+     * Icon Mall, 97 Acres Rd #, Monroe 10950
+     * CALL TYPE: possible ankle
+     * CALLER: 3476095253
+     * CAD: 0405202635
      * UNITS: KY85
-     * AGE: 2 F
      * http://maps.google.com/maps?daddr=...
      */
     fun parseDispatchMessage(message: String): ParsedDispatch? {
         val trimmed = message.trim()
         if (trimmed.isBlank()) return null
 
-        val lines = trimmed.lines().map { it.trim() }.filter { it.isNotBlank() }
+        // Extract fields using regex - works whether newlines exist or not
+        val callType = Regex("CALL\\s*TYPE:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|UNITS|AGE|http|$))", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
 
+        val units = Regex("UNITS?:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|CALL|AGE|http|$))", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
+
+        val caller = Regex("CALLER:\\s*(\\d+)", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
+
+        val cad = Regex("CAD:\\s*(\\d+)", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
+
+        val age = Regex("AGE:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|CALL|UNITS|http|$))", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
+
+        // Extract address: it's after the header line (KJ EMS...) and before CALL TYPE
         var address = ""
-        var callType = ""
-        var units = ""
-        var caller = ""
-        var age = ""
-        var cad = ""
 
-        for (line in lines) {
-            val upper = line.uppercase()
-            when {
-                upper.startsWith("CALL TYPE:") || upper.startsWith("CALLTYPE:") ->
-                    callType = line.substringAfter(":").trim()
-                upper.startsWith("UNITS:") || upper.startsWith("UNIT:") ->
-                    units = line.substringAfter(":").trim()
-                upper.startsWith("CALLER:") ->
-                    caller = line.substringAfter(":").trim()
-                upper.startsWith("CAD:") ->
-                    cad = line.substringAfter(":").trim()
-                upper.startsWith("AGE:") ->
-                    age = line.substringAfter(":").trim()
-                upper.startsWith("HTTP") || upper.startsWith("WWW") ->
-                    { /* skip URL lines */ }
-                // Address line: contains a number followed by street name
-                address.isBlank() && line.matches(Regex("^\\d+\\s+[A-Za-z].*")) ->
-                    address = line
+        // Remove the URL from the message for cleaner parsing
+        val withoutUrl = trimmed.replace(Regex("https?://\\S+"), "").trim()
+
+        // Try to find address between header and CALL TYPE
+        val callTypePos = withoutUrl.uppercase().indexOf("CALL TYPE")
+        if (callTypePos > 0) {
+            val beforeCallType = withoutUrl.substring(0, callTypePos).trim()
+            // Address is the part that contains a street number
+            // Header is like "KJ EMS D- KY14" (no street number)
+            val lines = beforeCallType.split("\n").map { it.trim() }.filter { it.isNotBlank() }
+            if (lines.size >= 2) {
+                // Multi-line: skip header, take the rest as address
+                address = lines.drop(1).joinToString(", ")
+            } else if (lines.size == 1) {
+                // Single line: try to find where address starts (after header pattern)
+                val headerMatch = Regex("^[A-Z]{2,}\\s+EMS\\s+\\S+\\s+\\S+\\s+").find(lines[0])
+                if (headerMatch != null) {
+                    address = lines[0].substring(headerMatch.range.last + 1).trim()
+                } else {
+                    // Try: everything after first comma-separated part that looks like a header
+                    val addrMatch = Regex("\\d+\\s+[A-Za-z]").find(lines[0])
+                    if (addrMatch != null) {
+                        address = lines[0].substring(addrMatch.range.first).trim()
+                    }
+                }
             }
         }
 
-        // Fallback if no structured address found
+        // Fallback: find any street address pattern in the message
+        if (address.isBlank()) {
+            Regex("(\\d+\\s+[A-Za-z][A-Za-z .']+(?:,\\s*[A-Za-z ]+)?\\s*\\d{5})")
+                .find(withoutUrl)?.let { address = it.groupValues[1] }
+        }
+        if (address.isBlank()) {
+            Regex("(\\d+\\s+[A-Za-z][A-Za-z .,'#]+(?:Rd|Road|St|Street|Ave|Avenue|Dr|Drive|Blvd|Ln|Lane|Mall|Way|Ct|Pl)[A-Za-z0-9,. #]*)", RegexOption.IGNORE_CASE)
+                .find(withoutUrl)?.let { address = it.groupValues[1] }
+        }
+
+        // Clean up address - remove any trailing field labels that got caught
+        address = address.replace(Regex("\\s*(CALL TYPE|CALLER|CAD|UNITS|AGE).*", RegexOption.IGNORE_CASE), "").trim()
+        address = address.trimEnd(',', ' ')
+
         if (address.isBlank()) {
             address = cleanAddress(trimmed)
         }
