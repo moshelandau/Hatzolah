@@ -34,7 +34,7 @@ object AppModule {
                 super.onCreate(db)
                 // Pre-populate admin member and test member (all NOT NULL columns must be specified)
                 db.execSQL("INSERT INTO members (name, phoneNumber, whatsappContact, email, isVerified, isAdmin, createdAt) VALUES ('Moshe Landau', '8455008085', '', '', 1, 1, ${System.currentTimeMillis()})")
-                db.execSQL("INSERT INTO members (name, phoneNumber, whatsappContact, email, isVerified, isAdmin, createdAt) VALUES ('Test Number', '8454810055', '', '', 1, 0, ${System.currentTimeMillis()})")
+                // Test number 8454810055 is configured as dispatch_number in SharedPreferences for testing
 
                 // Pre-populate hospitals
                 // Columns: name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes
