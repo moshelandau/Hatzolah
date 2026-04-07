@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hatzolah</string>
+    <string name="dispatch_channel_name">Dispatch Alerts</string>
+    <string name="dispatch_channel_description">Notifications for incoming dispatch calls</string>
+    <string name="tracking_channel_name">Location Tracking</string>
+    <string name="tracking_channel_description">Active location tracking during calls</string>
+    <string name="navigate_action">Navigate</string>
+    <string name="rma_hotline">RMA Hotline</string>
+</resources>
