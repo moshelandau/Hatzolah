@@ -23,24 +23,19 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Verify resources exist
-        run: |
-          echo "=== Checking mipmap resources ==="
-          find app/src/main/res/mipmap-* -type f -ls
-          echo "=== Checking all res files ==="
-          find app/src/main/res -type f | sort
-          echo "=== PNG validation ==="
-          file app/src/main/res/mipmap-*/ic_launcher.png || true
-
-      - name: Setup Gradle wrapper
-        run: |
-          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/g.zip
-          unzip -q /tmp/g.zip -d /tmp
-          /tmp/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
-          chmod +x gradlew
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
 
       - name: Build
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         if: success()
