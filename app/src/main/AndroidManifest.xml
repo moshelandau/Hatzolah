@@ -55,6 +55,15 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.DispatchAlertActivity"
+            android:exported="false"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.HatzolahApp" />
+
         <!-- SMS Broadcast Receiver for dispatch messages -->
         <receiver
             android:name=".service.SmsReceiver"

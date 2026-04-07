@@ -9,13 +9,10 @@ import androidx.core.app.NotificationCompat
 import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.R
 import com.hatzolah.app.service.SmsParser
+import com.hatzolah.app.ui.DispatchAlertActivity
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Handles creating and showing high-priority lock screen notifications
- * for incoming dispatch calls with a one-tap navigate button.
- */
 @Singleton
 class DispatchNotificationHelper @Inject constructor(
     private val smsParser: SmsParser
@@ -24,11 +21,15 @@ class DispatchNotificationHelper @Inject constructor(
         const val DISPATCH_NOTIFICATION_ID = 1001
     }
 
-    fun showDispatchNotification(context: Context, address: String, callType: String = "") {
+    fun showDispatchNotification(context: Context, address: String, callType: String = "", rawMessage: String = "") {
+        // Launch full-screen dispatch alert activity
+        val alertIntent = DispatchAlertActivity.createIntent(context, address, callType, rawMessage)
+        context.startActivity(alertIntent)
+
+        // Also show a persistent notification
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        // Create Google Maps navigation intent
         val navigationUri = "google.navigation:q=${smsParser.formatForNavigation(address)}"
         val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri)).apply {
             setPackage("com.google.android.apps.maps")
@@ -38,8 +39,12 @@ class DispatchNotificationHelper @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Build the full-screen notification that shows on lock screen
-        val title = if (callType.isNotBlank()) "Dispatch: $callType" else "Dispatch Call"
+        val alertPendingIntent = PendingIntent.getActivity(
+            context, 1, alertIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val title = if (callType.isNotBlank()) "DISPATCH: $callType" else "DISPATCH CALL"
 
         val notification = NotificationCompat.Builder(context, HatzolahApp.DISPATCH_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -49,13 +54,10 @@ class DispatchNotificationHelper @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(true)
-            .setFullScreenIntent(mapPendingIntent, true)
-            .addAction(
-                android.R.drawable.ic_menu_directions,
-                "Navigate",
-                mapPendingIntent
-            )
+            .setAutoCancel(false)
+            .setOngoing(true)
+            .setFullScreenIntent(alertPendingIntent, true)
+            .addAction(android.R.drawable.ic_menu_directions, "Navigate", mapPendingIntent)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 

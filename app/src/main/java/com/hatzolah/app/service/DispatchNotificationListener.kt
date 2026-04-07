@@ -62,7 +62,8 @@ class DispatchNotificationListener : NotificationListenerService() {
                 notificationHelper.showDispatchNotification(
                     context = applicationContext,
                     address = parsed.address,
-                    callType = parsed.callType
+                    callType = parsed.callType,
+                    rawMessage = messageBody
                 )
             }
         }
