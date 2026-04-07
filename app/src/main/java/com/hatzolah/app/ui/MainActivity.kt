@@ -1,14 +1,23 @@
 package com.hatzolah.app.ui
 
 import android.Manifest
+import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.hatzolah.app.service.DispatchNotificationListener
 import com.hatzolah.app.ui.auth.AuthScreen
 import com.hatzolah.app.ui.navigation.AppNavigation
 import com.hatzolah.app.ui.theme.HatzolahTheme
@@ -23,7 +32,7 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* permissions granted or denied - app continues either way */ }
+    ) { /* continue regardless */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,8 +41,21 @@ class MainActivity : ComponentActivity() {
         setContent {
             HatzolahTheme {
                 var isLoggedIn by remember { mutableStateOf(preferencesManager.isLoggedIn()) }
+                var showNotifAccessPrompt by remember { mutableStateOf(false) }
 
-                if (isLoggedIn) {
+                LaunchedEffect(Unit) {
+                    showNotifAccessPrompt = !isNotificationListenerEnabled()
+                }
+
+                if (showNotifAccessPrompt && isLoggedIn) {
+                    NotificationAccessPrompt(
+                        onEnable = {
+                            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            showNotifAccessPrompt = false
+                        },
+                        onSkip = { showNotifAccessPrompt = false }
+                    )
+                } else if (isLoggedIn) {
                     AppNavigation()
                 } else {
                     AuthScreen(
@@ -44,11 +66,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun isNotificationListenerEnabled(): Boolean {
+        val cn = ComponentName(this, DispatchNotificationListener::class.java)
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
+        return flat.contains(cn.flattenToString())
+    }
+
     private fun requestRequiredPermissions() {
         val permissions = mutableListOf(
-            Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_SMS,
-            Manifest.permission.SEND_SMS,
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
             Manifest.permission.CALL_PHONE
@@ -60,9 +85,46 @@ class MainActivity : ComponentActivity() {
         val needed = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-
         if (needed.isNotEmpty()) {
             permissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+}
+
+@Composable
+fun NotificationAccessPrompt(onEnable: () -> Unit, onSkip: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Enable Dispatch Monitoring",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "To receive dispatch alerts from incoming SMS, Hatzolah needs Notification Access. This lets the app read SMS notifications without needing restricted SMS permissions.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "On the next screen, find \"Hatzolah\" and toggle it ON.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onEnable,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Enable Notification Access")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = onSkip) {
+            Text("Skip for now")
         }
     }
 }
