@@ -6,25 +6,37 @@ import android.content.Intent
 import android.provider.Telephony
 import com.hatzolah.app.util.DispatchNotificationHelper
 import com.hatzolah.app.util.PreferencesManager
-import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 /**
  * Monitors incoming SMS messages and triggers dispatch processing
  * when a message arrives from the configured dispatch number.
  */
-@AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
 
-    @Inject lateinit var smsParser: SmsParser
-    @Inject lateinit var notificationHelper: DispatchNotificationHelper
-    @Inject lateinit var preferencesManager: PreferencesManager
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface SmsReceiverEntryPoint {
+        fun smsParser(): SmsParser
+        fun notificationHelper(): DispatchNotificationHelper
+        fun preferencesManager(): PreferencesManager
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+
+        val entryPoint = EntryPointAccessors.fromApplication(
+            context.applicationContext, SmsReceiverEntryPoint::class.java
+        )
+        val smsParser = entryPoint.smsParser()
+        val preferencesManager = entryPoint.preferencesManager()
+        val notificationHelper = entryPoint.notificationHelper()
 
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         val dispatchNumber = preferencesManager.getDispatchNumber()
@@ -35,14 +47,18 @@ class SmsReceiver : BroadcastReceiver() {
             val sender = smsMessage.displayOriginatingAddress ?: continue
             val body = smsMessage.displayMessageBody ?: continue
 
-            // Check if SMS is from the dispatch number
             if (normalizePhone(sender) == normalizePhone(dispatchNumber)) {
-                handleDispatchMessage(context, body)
+                handleDispatchMessage(context, smsParser, notificationHelper, body)
             }
         }
     }
 
-    private fun handleDispatchMessage(context: Context, message: String) {
+    private fun handleDispatchMessage(
+        context: Context,
+        smsParser: SmsParser,
+        notificationHelper: DispatchNotificationHelper,
+        message: String
+    ) {
         val parsed = smsParser.parseDispatchMessage(message) ?: return
 
         CoroutineScope(Dispatchers.Main).launch {
