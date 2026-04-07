@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: ['*']
+  pull_request:
+    branches: ['*']
   workflow_dispatch:
 
 jobs:
@@ -65,11 +67,6 @@ jobs:
         if: failure()
         run: |
           echo '## Build Error Details' >> $GITHUB_STEP_SUMMARY
-          echo '### Last 50 lines' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -50 build-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo 'No build output captured' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo '### Errors' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -A3 'error:\|FAILED\|Exception' build-output.txt 2>/dev/null | head -30 >> $GITHUB_STEP_SUMMARY || echo 'No specific errors found' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
