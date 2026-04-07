@@ -16,12 +16,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install SDK
+      - name: Install SDK components
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          sdkmanager --list_installed 2>/dev/null | head -20 || sdkmanager --list 2>/dev/null | head -20
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -32,10 +35,11 @@ jobs:
           key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
-      - name: Build
+      - name: Build debug APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build-output.txt
+          echo "Build exit code: ${PIPESTATUS[0]}"
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -43,11 +47,22 @@ jobs:
           name: hatzolah-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Debug failure
+      - name: Upload build logs on failure
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-reports
+          path: |
+            build-output.txt
+            app/build/reports/
+            app/build/outputs/logs/
+
+      - name: Show failure details
         if: failure()
         run: |
-          echo "=== Compiled resources ==="
-          find app/build -name "*.flat" -ls 2>/dev/null | head -20
-          echo "=== Resource errors ==="
-          find app/build -name "aapt2-*" -exec cat {} \; 2>/dev/null | tail -30
-          find app/build -name "*.log" -exec tail -20 {} \; 2>/dev/null
+          echo "=== Last 100 lines of build output ==="
+          tail -100 build-output.txt 2>/dev/null || true
+          echo "=== Kotlin compilation errors ==="
+          grep -A5 "error:" build-output.txt 2>/dev/null || echo "No error: patterns found"
+          echo "=== AAPT errors ==="
+          grep -A5 "AAPT" build-output.txt 2>/dev/null || echo "No AAPT errors found"
