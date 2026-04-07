@@ -3,24 +3,22 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8918023  16916 -rw-r--r--   1 runner   runner   17320084 Apr  7 22:07 app/build/outputs/apk/debug/app-debug.apk
+  8919796  16920 -rw-r--r--   1 runner   runner   17323080 Apr  7 22:17 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:mergeDebugAssets
-> Task :app:compressDebugAssets
-> Task :app:processDebugManifestForPackage
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugNativeLibs NO-SOURCE
-> Task :app:processDebugResources
+> Task :app:processDebugManifestForPackage
 > Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:mergeLibDexDebug
+> Task :app:processDebugResources
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
-> Task :app:kspDebugKotlin
 > Task :app:mergeExtDexDebug
+> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
 
@@ -30,6 +28,8 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallDocumentationScreen.kt:36:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/dashboard/DashboardScreen.kt:183:46 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/member/MemberDirectoryScreen.kt:73:72 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/DispatchNotificationHelper.kt:35:26 'FULL_WAKE_LOCK: Int' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/DispatchNotificationHelper.kt:35:57 'ACQUIRE_CAUSES_WAKEUP: Int' is deprecated. Deprecated in Java
 
 > Task :app:compileDebugJavaWithJavac
 > Task :app:hiltAggregateDepsDebug
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 16s
+BUILD SUCCESSFUL in 1m 18s
 40 actionable tasks: 40 executed
