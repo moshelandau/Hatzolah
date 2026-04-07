@@ -35,9 +35,16 @@ jobs:
 
       - name: Build debug APK
         run: |
-          set -o pipefail
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo '## Build Failed' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -80 build-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $EXIT_CODE
+          fi
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -57,7 +64,12 @@ jobs:
       - name: Show failure details
         if: failure()
         run: |
-          echo "=== Last 100 lines of build output ==="
-          tail -100 build-output.txt 2>/dev/null || true
-          echo "=== Errors ==="
-          grep -A5 "error:" build-output.txt 2>/dev/null | head -50 || echo "No error: patterns found"
+          echo '## Build Error Details' >> $GITHUB_STEP_SUMMARY
+          echo '### Last 50 lines' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -50 build-output.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo 'No build output captured' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo '### Errors' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -A3 'error:\|FAILED\|Exception' build-output.txt 2>/dev/null | head -30 >> $GITHUB_STEP_SUMMARY || echo 'No specific errors found' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
