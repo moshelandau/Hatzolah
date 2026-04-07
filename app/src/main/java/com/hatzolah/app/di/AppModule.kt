@@ -32,8 +32,8 @@ object AppModule {
         ).addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
-                // Pre-populate admin member
-                db.execSQL("INSERT INTO members (name, phoneNumber, isVerified, isAdmin, createdAt) VALUES ('Moshe Landau', '8455008085', 1, 1, ${System.currentTimeMillis()})")
+                // Pre-populate admin member (all NOT NULL columns must be specified)
+                db.execSQL("INSERT INTO members (name, phoneNumber, whatsappContact, email, isVerified, isAdmin, createdAt) VALUES ('Moshe Landau', '8455008085', '', '', 1, 1, ${System.currentTimeMillis()})")
 
                 // Pre-populate hospitals
                 // Columns: name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes
