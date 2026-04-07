@@ -3,24 +3,24 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8656176  16752 -rw-r--r--   1 runner   runner   17152040 Apr  7 20:31 app/build/outputs/apk/debug/app-debug.apk
+  8917146  16756 -rw-r--r--   1 runner   runner   17154188 Apr  7 20:42 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
-> Task :app:mergeDebugJniLibFolders
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugJniLibFolders
 > Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:mergeLibDexDebug
 > Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:processDebugResources
-> Task :app:mergeLibDexDebug
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
-> Task :app:kspDebugKotlin
 > Task :app:mergeExtDexDebug
+> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
 
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 15s
+BUILD SUCCESSFUL in 1m 17s
 40 actionable tasks: 40 executed
