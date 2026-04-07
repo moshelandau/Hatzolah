@@ -9,79 +9,73 @@ class SmsParser @Inject constructor() {
     data class ParsedDispatch(
         val address: String,
         val rawMessage: String,
-        val callType: String = ""
+        val callType: String = "",
+        val units: String = "",
+        val caller: String = "",
+        val age: String = "",
+        val cad: String = ""
     )
 
     /**
-     * Parses dispatch SMS messages in various formats.
-     * Hatzolah dispatch formats vary - this handles the most common ones.
+     * Parses Hatzolah dispatch SMS messages.
+     *
+     * Expected format:
+     * KJ EMS D- KY82
+     * 15 Dinev Road #303, Monroe 10950
+     * CALL TYPE: Dislocation
+     * CALLER: 9292830422
+     * CAD: 0405202648
+     * UNITS: KY85
+     * AGE: 2 F
+     * http://maps.google.com/maps?daddr=...
      */
     fun parseDispatchMessage(message: String): ParsedDispatch? {
         val trimmed = message.trim()
         if (trimmed.isBlank()) return null
 
-        // Try structured formats first, then fall back to raw parsing
-
-        // Format: "CALL: <type> at <address>"
-        Regex("(?i)call:?\\s*(.+?)\\s+at\\s+(.+)", RegexOption.DOT_MATCHES_ALL)
-            .find(trimmed)?.let { match ->
-                return ParsedDispatch(
-                    address = cleanAddress(match.groupValues[2]),
-                    rawMessage = trimmed,
-                    callType = match.groupValues[1].trim()
-                )
-            }
-
-        // Format: "<type> - <address>" or "<type>: <address>"
-        Regex("^([A-Za-z /]+?)\\s*[-:]\\s*(\\d+.+)", RegexOption.DOT_MATCHES_ALL)
-            .find(trimmed)?.let { match ->
-                return ParsedDispatch(
-                    address = cleanAddress(match.groupValues[2]),
-                    rawMessage = trimmed,
-                    callType = match.groupValues[1].trim()
-                )
-            }
-
-        // Format: "DISPATCH <address>" or "DISP <address>"
-        Regex("(?i)(?:dispatch|disp):?\\s+(.+)", RegexOption.DOT_MATCHES_ALL)
-            .find(trimmed)?.let { match ->
-                return ParsedDispatch(
-                    address = cleanAddress(match.groupValues[1]),
-                    rawMessage = trimmed
-                )
-            }
-
-        // Format: Multi-line - first line is type, rest is address
         val lines = trimmed.lines().map { it.trim() }.filter { it.isNotBlank() }
-        if (lines.size >= 2) {
-            val firstLine = lines[0]
-            val rest = lines.drop(1).joinToString(" ")
-            // If first line has no numbers (likely call type) and rest has numbers (likely address)
-            if (!firstLine.contains(Regex("\\d{2,}")) && rest.contains(Regex("\\d"))) {
-                return ParsedDispatch(
-                    address = cleanAddress(rest),
-                    rawMessage = trimmed,
-                    callType = firstLine.replace(Regex("[:\\-]+$"), "").trim()
-                )
+
+        var address = ""
+        var callType = ""
+        var units = ""
+        var caller = ""
+        var age = ""
+        var cad = ""
+
+        for (line in lines) {
+            val upper = line.uppercase()
+            when {
+                upper.startsWith("CALL TYPE:") || upper.startsWith("CALLTYPE:") ->
+                    callType = line.substringAfter(":").trim()
+                upper.startsWith("UNITS:") || upper.startsWith("UNIT:") ->
+                    units = line.substringAfter(":").trim()
+                upper.startsWith("CALLER:") ->
+                    caller = line.substringAfter(":").trim()
+                upper.startsWith("CAD:") ->
+                    cad = line.substringAfter(":").trim()
+                upper.startsWith("AGE:") ->
+                    age = line.substringAfter(":").trim()
+                upper.startsWith("HTTP") || upper.startsWith("WWW") ->
+                    { /* skip URL lines */ }
+                // Address line: contains a number followed by street name
+                address.isBlank() && line.matches(Regex("^\\d+\\s+[A-Za-z].*")) ->
+                    address = line
             }
         }
 
-        // Format: Contains a street address pattern anywhere
-        Regex("(\\d+\\s+[A-Za-z][A-Za-z .']+(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Blvd|Ln|Lane|Ct|Court|Pl|Place|Way|Pkwy|Hwy)[A-Za-z0-9,. #]*)", RegexOption.IGNORE_CASE)
-            .find(trimmed)?.let { match ->
-                val address = match.groupValues[1]
-                val callType = trimmed.substringBefore(address).trim().trimEnd('-', ':', ' ')
-                return ParsedDispatch(
-                    address = cleanAddress(address),
-                    rawMessage = trimmed,
-                    callType = callType
-                )
-            }
+        // Fallback if no structured address found
+        if (address.isBlank()) {
+            address = cleanAddress(trimmed)
+        }
 
-        // Fallback: use entire message as both address and content
         return ParsedDispatch(
-            address = cleanAddress(trimmed),
-            rawMessage = trimmed
+            address = cleanAddress(address),
+            rawMessage = trimmed,
+            callType = callType,
+            units = units,
+            caller = caller,
+            age = age,
+            cad = cad
         )
     }
 

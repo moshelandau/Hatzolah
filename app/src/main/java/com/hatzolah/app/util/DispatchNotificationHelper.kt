@@ -26,8 +26,8 @@ class DispatchNotificationHelper @Inject constructor(
         const val DISPATCH_NOTIFICATION_ID = 1001
     }
 
-    fun showDispatchNotification(context: Context, address: String, callType: String = "", rawMessage: String = "") {
-        val alertIntent = DispatchAlertActivity.createIntent(context, address, callType, rawMessage)
+    fun showDispatchNotification(context: Context, address: String, callType: String = "", rawMessage: String = "", units: String = "", age: String = "") {
+        val alertIntent = DispatchAlertActivity.createIntent(context, address, callType, rawMessage, units, age)
 
         // Wake the device
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager

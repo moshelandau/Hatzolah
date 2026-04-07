@@ -69,7 +69,9 @@ class DispatchNotificationListener : NotificationListenerService() {
                     context = applicationContext,
                     address = parsed.address,
                     callType = parsed.callType,
-                    rawMessage = messageBody
+                    rawMessage = messageBody,
+                    units = parsed.units,
+                    age = parsed.age
                 )
             }
         }

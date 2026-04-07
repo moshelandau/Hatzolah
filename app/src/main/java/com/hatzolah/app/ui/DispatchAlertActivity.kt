@@ -36,12 +36,16 @@ class DispatchAlertActivity : ComponentActivity() {
         const val EXTRA_ADDRESS = "dispatch_address"
         const val EXTRA_CALL_TYPE = "dispatch_call_type"
         const val EXTRA_RAW_MESSAGE = "dispatch_raw_message"
+        const val EXTRA_UNITS = "dispatch_units"
+        const val EXTRA_AGE = "dispatch_age"
 
-        fun createIntent(context: Context, address: String, callType: String, rawMessage: String): Intent {
+        fun createIntent(context: Context, address: String, callType: String, rawMessage: String, units: String = "", age: String = ""): Intent {
             return Intent(context, DispatchAlertActivity::class.java).apply {
                 putExtra(EXTRA_ADDRESS, address)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_RAW_MESSAGE, rawMessage)
+                putExtra(EXTRA_UNITS, units)
+                putExtra(EXTRA_AGE, age)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -71,6 +75,8 @@ class DispatchAlertActivity : ComponentActivity() {
         val address = intent.getStringExtra(EXTRA_ADDRESS) ?: ""
         val callType = intent.getStringExtra(EXTRA_CALL_TYPE) ?: ""
         val rawMessage = intent.getStringExtra(EXTRA_RAW_MESSAGE) ?: ""
+        val units = intent.getStringExtra(EXTRA_UNITS) ?: ""
+        val age = intent.getStringExtra(EXTRA_AGE) ?: ""
 
         // Parse unit number from address
         val unitNumber = extractUnitNumber(address)
@@ -82,6 +88,8 @@ class DispatchAlertActivity : ComponentActivity() {
                     callType = callType,
                     unitNumber = unitNumber,
                     rawMessage = rawMessage,
+                    units = units,
+                    age = age,
                     onNavigate = { navigateToAddress(address) },
                     onDismiss = { finish() }
                 )
@@ -123,6 +131,8 @@ fun DispatchAlertScreen(
     callType: String,
     unitNumber: String,
     rawMessage: String,
+    units: String = "",
+    age: String = "",
     onNavigate: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -134,7 +144,7 @@ fun DispatchAlertScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Dismiss button top-right
@@ -152,8 +162,6 @@ fun DispatchAlertScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
             // DISPATCH header
             Text(
                 text = "DISPATCH",
@@ -163,9 +171,9 @@ fun DispatchAlertScreen(
                 letterSpacing = 4.sp
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Call type / nature
+            // Call type / nature - BIG yellow badge
             if (callType.isNotBlank()) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEB3B)),
@@ -173,16 +181,27 @@ fun DispatchAlertScreen(
                 ) {
                     Text(
                         text = callType.uppercase(),
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Black,
                         color = Color.Black,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                         textAlign = TextAlign.Center
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Age info
+            if (age.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Patient: $age",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // ADDRESS - big and prominent
             Card(
@@ -214,10 +233,10 @@ fun DispatchAlertScreen(
                         ) {
                             Text(
                                 text = unitNumber.uppercase(),
-                                fontSize = 42.sp,
+                                fontSize = 48.sp,
                                 fontWeight = FontWeight.Black,
                                 color = Color.White,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                                modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -225,23 +244,24 @@ fun DispatchAlertScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Raw message if different from address
-            if (rawMessage.isNotBlank() && rawMessage != address) {
+            // Units assigned
+            if (units.isNotBlank()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.15f)),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = rawMessage,
-                        fontSize = 16.sp,
+                        text = "UNITS: $units",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.padding(12.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        textAlign = TextAlign.Center
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
             }
 
             Spacer(modifier = Modifier.weight(1f))
@@ -270,12 +290,14 @@ fun DispatchAlertScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Dismiss button
             OutlinedButton(
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -286,7 +308,7 @@ fun DispatchAlertScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
