@@ -41,29 +41,32 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon 2>&1 | tee build-output.txt || true
 
-      - name: Commit error log
-        if: always()
+      - name: Check build result
+        run: |
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            echo 'APK built successfully!'
+          else
+            echo 'Build failed. Errors:'
+            grep '^e:' build-output.txt || tail -20 build-output.txt
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: hatzolah-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Commit error log on failure
+        if: failure()
         run: |
           echo '=== KOTLIN ERRORS ===' > build-error-log.txt
-          grep -n '^e:' build-output.txt >> build-error-log.txt 2>/dev/null || echo 'No e: lines found' >> build-error-log.txt
-          echo '' >> build-error-log.txt
-          echo '=== FIRST 40 ERROR LINES ===' >> build-error-log.txt
-          grep -i -m 40 'error' build-output.txt >> build-error-log.txt 2>/dev/null || echo 'No error lines' >> build-error-log.txt
-          echo '' >> build-error-log.txt
-          echo '=== TASK THAT FAILED ===' >> build-error-log.txt
-          grep -B5 'FAILED' build-output.txt >> build-error-log.txt 2>/dev/null || echo 'No FAILED lines' >> build-error-log.txt
+          grep '^e:' build-output.txt >> build-error-log.txt 2>/dev/null || echo 'No e: lines' >> build-error-log.txt
           echo '' >> build-error-log.txt
           echo '=== LAST 30 LINES ===' >> build-error-log.txt
-          tail -30 build-output.txt >> build-error-log.txt 2>/dev/null || echo 'No output' >> build-error-log.txt
+          tail -30 build-output.txt >> build-error-log.txt
           git config user.name 'github-actions'
           git config user.email 'github-actions@github.com'
           git add -f build-error-log.txt
           git commit -m 'CI: build error log [skip ci]' || true
           git push || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: hatzolah-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: ignore

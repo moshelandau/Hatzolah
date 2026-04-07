@@ -16,6 +16,7 @@ data class Protocol(
     val category: String
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProtocolsScreen() {
     val protocols = remember { getEmergencyProtocols() }
@@ -75,7 +76,7 @@ fun ProtocolsScreen() {
 
                         if (expandedIndex == index) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            HorizontalDivider()
+                            Divider()
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = protocol.content,
