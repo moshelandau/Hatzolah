@@ -1,7 +1,9 @@
 package com.hatzolah.app.ui.dashboard
 
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,9 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.service.DispatchNotificationListener
+import com.hatzolah.app.ui.DispatchAlertActivity
 
 @Composable
 fun DashboardScreen(
@@ -106,6 +111,55 @@ fun DashboardScreen(
                         value = "${uiState.avgResponseTime} min",
                         label = "Avg Response"
                     )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Notification Listener status + test
+        val listenerEnabled = remember {
+            val cn = ComponentName(context, DispatchNotificationListener::class.java)
+            val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners") ?: ""
+            flat.contains(cn.flattenToString())
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (listenerEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800)
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = if (listenerEnabled) "Dispatch Monitoring: ACTIVE" else "Dispatch Monitoring: NOT ENABLED",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!listenerEnabled) {
+                        Button(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                        ) {
+                            Text("Enable Now", color = Color(0xFFFF9800))
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            val intent = DispatchAlertActivity.createIntent(
+                                context,
+                                "123 Main St Apt 4B, Monsey NY 10952",
+                                "Cardiac Arrest",
+                                "CALL: Cardiac Arrest at 123 Main St Apt 4B, Monsey NY 10952"
+                            )
+                            context.startActivity(intent)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White)
+                    ) {
+                        Text("Test Alert", color = if (listenerEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800))
+                    }
                 }
             }
         }
