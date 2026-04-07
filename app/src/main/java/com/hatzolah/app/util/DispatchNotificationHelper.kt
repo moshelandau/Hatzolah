@@ -37,19 +37,36 @@ class DispatchNotificationHelper @Inject constructor(
         )
         wl.acquire(10000) // 10 seconds
 
-        // Play alert sound once
+        // Play alert sound LOUD - even on vibrate/silent mode
         try {
-            val mp = MediaPlayer.create(context, R.raw.dispatch_alert)
-            mp?.let {
-                it.setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                it.setOnCompletionListener { player -> player.release() }
-                it.start()
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            // Save current state
+            val originalVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_ALARM)
+            val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+            // Force alarm volume to max
+            audioManager.setStreamVolume(
+                android.media.AudioManager.STREAM_ALARM,
+                maxVolume,
+                0
+            )
+
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            val afd = context.resources.openRawResourceFd(R.raw.dispatch_alert)
+            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            afd.close()
+            mp.prepare()
+            mp.setOnCompletionListener { player ->
+                player.release()
+                // Restore original volume
+                audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, originalVolume, 0)
             }
+            mp.start()
         } catch (_: Exception) {}
 
         // Build notification with full-screen intent
