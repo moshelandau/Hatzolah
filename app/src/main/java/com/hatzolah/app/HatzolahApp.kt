@@ -3,6 +3,7 @@ package com.hatzolah.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.SharedPreferences
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
@@ -16,6 +17,17 @@ class HatzolahApp : Application() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        setDefaultSettings()
+    }
+
+    private fun setDefaultSettings() {
+        val prefs = getSharedPreferences("hatzolah_prefs", MODE_PRIVATE)
+        if (!prefs.contains("dispatch_number")) {
+            prefs.edit()
+                .putString("dispatch_number", "8445991212")
+                .putString("rma_hotline", "8453675077")
+                .apply()
+        }
     }
 
     private fun createNotificationChannels() {
