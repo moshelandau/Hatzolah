@@ -265,22 +265,13 @@ fun DispatchAlertScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Units assigned
+            // Units assigned - small reference
             if (units.isNotBlank()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1B5E20)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "UNITS: $units",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = "Units: $units",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
