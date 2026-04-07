@@ -23,8 +23,6 @@ jobs:
         run: |
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          sdkmanager --list_installed 2>/dev/null | head -20 || sdkmanager --list 2>/dev/null | head -20
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -39,7 +37,6 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build-output.txt
-          echo "Build exit code: ${PIPESTATUS[0]}"
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -55,14 +52,11 @@ jobs:
           path: |
             build-output.txt
             app/build/reports/
-            app/build/outputs/logs/
 
       - name: Show failure details
         if: failure()
         run: |
           echo "=== Last 100 lines of build output ==="
           tail -100 build-output.txt 2>/dev/null || true
-          echo "=== Kotlin compilation errors ==="
-          grep -A5 "error:" build-output.txt 2>/dev/null || echo "No error: patterns found"
-          echo "=== AAPT errors ==="
-          grep -A5 "AAPT" build-output.txt 2>/dev/null || echo "No AAPT errors found"
+          echo "=== Errors ==="
+          grep -A5 "error:" build-output.txt 2>/dev/null | head -50 || echo "No error: patterns found"
