@@ -2,6 +2,7 @@ package com.hatzolah.app.ui
 
 import android.Manifest
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -87,6 +88,14 @@ class MainActivity : ComponentActivity() {
         }
         if (needed.isNotEmpty()) {
             permissionLauncher.launch(needed.toTypedArray())
+        }
+
+        // Check full-screen intent permission for Android 14+
+        if (Build.VERSION.SDK_INT >= 34) {
+            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            if (!nm.canUseFullScreenIntent()) {
+                startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT))
+            }
         }
     }
 }

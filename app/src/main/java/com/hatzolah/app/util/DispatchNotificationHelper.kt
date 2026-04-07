@@ -4,7 +4,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.R
@@ -22,13 +27,39 @@ class DispatchNotificationHelper @Inject constructor(
     }
 
     fun showDispatchNotification(context: Context, address: String, callType: String = "", rawMessage: String = "") {
-        // Launch full-screen dispatch alert activity
         val alertIntent = DispatchAlertActivity.createIntent(context, address, callType, rawMessage)
-        context.startActivity(alertIntent)
 
-        // Also show a persistent notification
+        // Wake the device
+        val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val wl = pm.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+            "hatzolah:dispatch"
+        )
+        wl.acquire(10000) // 10 seconds
+
+        // Play alert sound once
+        try {
+            val mp = MediaPlayer.create(context, R.raw.dispatch_alert)
+            mp?.let {
+                it.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                it.setOnCompletionListener { player -> player.release() }
+                it.start()
+            }
+        } catch (_: Exception) {}
+
+        // Build notification with full-screen intent
         val notificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val alertPendingIntent = PendingIntent.getActivity(
+            context, 1, alertIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val navigationUri = "google.navigation:q=${smsParser.formatForNavigation(address)}"
         val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri)).apply {
@@ -39,28 +70,34 @@ class DispatchNotificationHelper @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val alertPendingIntent = PendingIntent.getActivity(
-            context, 1, alertIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val title = if (callType.isNotBlank()) "DISPATCH: $callType" else "DISPATCH CALL"
 
         val notification = NotificationCompat.Builder(context, HatzolahApp.DISPATCH_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle(title)
             .setContentText(address)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(address))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$address\n\n$rawMessage"))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(false)
             .setOngoing(true)
             .setFullScreenIntent(alertPendingIntent, true)
-            .addAction(android.R.drawable.ic_menu_directions, "Navigate", mapPendingIntent)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setContentIntent(alertPendingIntent)
+            .addAction(android.R.drawable.ic_menu_directions, "NAVIGATE", mapPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "OPEN ALERT", alertPendingIntent)
+            .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800))
+            .setSilent(false)
             .build()
 
+        // Show notification FIRST (this triggers full-screen intent on lock screen)
         notificationManager.notify(DISPATCH_NOTIFICATION_ID, notification)
+
+        // Also try direct activity launch (works when screen is on)
+        try {
+            context.startActivity(alertIntent)
+        } catch (_: Exception) {
+            // Background activity start blocked - the full-screen intent will handle it
+        }
     }
 }
