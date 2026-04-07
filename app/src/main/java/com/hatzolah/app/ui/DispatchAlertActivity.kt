@@ -125,6 +125,18 @@ class DispatchAlertActivity : ComponentActivity() {
     }
 }
 
+private fun getSeverity(callType: String): String {
+    val upper = callType.uppercase()
+    val critical = listOf("CARDIAC", "ARREST", "UNCONSCIOUS", "UNRESPONSIVE", "NOT BREATHING",
+        "CHOKING", "SHOOTING", "STABBING", "STROKE", "SEIZURE", "ANAPHYL", "CODE", "CPR", "DOA", "MCI")
+    val moderate = listOf("DIFFICULTY BREATHING", "CHEST PAIN", "BLEED", "HEMORRHAG", "TRAUMA",
+        "FALL", "FRACTURE", "VEHICLE", "MVA", "ACCIDENT", "OVERDOSE", "OB ", "LABOR", "DELIVERY",
+        "DIABETIC", "ALLERGIC", "BURN", "LACERATION", "HEAD INJURY")
+    if (critical.any { upper.contains(it) }) return "CRITICAL"
+    if (moderate.any { upper.contains(it) }) return "MODERATE"
+    return "MINOR"
+}
+
 @Composable
 fun DispatchAlertScreen(
     address: String,
@@ -136,10 +148,17 @@ fun DispatchAlertScreen(
     onNavigate: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val severity = getSeverity(callType)
+    val bgColor = when (severity) {
+        "CRITICAL" -> Color(0xFFD32F2F) // Red
+        "MODERATE" -> Color(0xFFE65100) // Deep orange
+        else -> Color(0xFF1565C0) // Blue for minor
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFD32F2F))
+            .background(bgColor)
     ) {
         Column(
             modifier = Modifier
@@ -278,7 +297,7 @@ fun DispatchAlertScreen(
                 Icon(
                     Icons.Default.Navigation,
                     contentDescription = null,
-                    tint = Color(0xFFD32F2F),
+                    tint = bgColor,
                     modifier = Modifier.size(36.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
@@ -286,7 +305,7 @@ fun DispatchAlertScreen(
                     text = "NAVIGATE",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD32F2F)
+                    color = bgColor
                 )
             }
 
