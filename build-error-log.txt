@@ -3,24 +3,24 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-   854247  16756 -rw-r--r--   1 runner   runner   17154616 Apr  7 21:44 app/build/outputs/apk/debug/app-debug.apk
+   854297  16764 -rw-r--r--   1 runner   runner   17162628 Apr  7 21:53 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
-> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses
-> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:mergeLibDexDebug
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:processDebugResources
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
-> Task :app:processDebugManifestForPackage
-> Task :app:processDebugResources
-> Task :app:mergeExtDexDebug
 > Task :app:kspDebugKotlin
+> Task :app:mergeExtDexDebug
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
 
