@@ -43,8 +43,20 @@ class AuthViewModel @Inject constructor(
 
     private fun checkFirstTimeSetup() {
         viewModelScope.launch {
-            val members = memberRepository.getAllMembers().first()
-            if (members.isEmpty()) {
+            try {
+                val members = memberRepository.getAllMembers().first()
+                if (members.isEmpty()) {
+                    _uiState.update { it.copy(isFirstTimeSetup = true) }
+                } else if (!preferencesManager.isLoggedIn()) {
+                    // Auto-login the first admin member if no one is logged in yet
+                    val admin = members.firstOrNull { it.isAdmin }
+                    if (admin != null) {
+                        preferencesManager.setLoggedInMemberId(admin.id)
+                        preferencesManager.setLoggedIn(true)
+                        _uiState.update { it.copy(isAuthenticated = true) }
+                    }
+                }
+            } catch (e: Exception) {
                 _uiState.update { it.copy(isFirstTimeSetup = true) }
             }
         }
