@@ -58,7 +58,7 @@ class DispatchNotificationHelper @Inject constructor(
             .setOngoing(true)
             .setFullScreenIntent(alertPendingIntent, true)
             .addAction(android.R.drawable.ic_menu_directions, "Navigate", mapPendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
             .build()
 
         notificationManager.notify(DISPATCH_NOTIFICATION_ID, notification)
