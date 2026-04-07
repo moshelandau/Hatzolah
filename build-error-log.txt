@@ -3,27 +3,27 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8919796  16920 -rw-r--r--   1 runner   runner   17323080 Apr  7 22:17 app/build/outputs/apk/debug/app-debug.apk
+  8392969  16920 -rw-r--r--   1 runner   runner   17325140 Apr  7 22:30 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:desugarDebugFileDependencies
-> Task :app:mergeDebugJniLibFolders
-> Task :app:checkDebugDuplicateClasses
-> Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:processDebugManifestForPackage
-> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugJniLibFolders
+> Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:mergeLibDexDebug
+> Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:processDebugResources
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
 > Task :app:writeDebugSigningConfigVersions
-> Task :app:mergeExtDexDebug
 > Task :app:kspDebugKotlin
+> Task :app:mergeExtDexDebug
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
 
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/SmsVerificationService.kt:37:41 'getDefault(): SmsManager!' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:145:5 Parameter 'rawMessage' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/analytics/AnalyticsScreen.kt:68:44 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallDocumentationScreen.kt:36:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/dashboard/DashboardScreen.kt:183:46 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 18s
+BUILD SUCCESSFUL in 1m 16s
 40 actionable tasks: 40 executed
