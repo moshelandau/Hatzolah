@@ -23,6 +23,15 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Verify resources exist
+        run: |
+          echo "=== Checking mipmap resources ==="
+          find app/src/main/res/mipmap-* -type f -ls
+          echo "=== Checking all res files ==="
+          find app/src/main/res -type f | sort
+          echo "=== PNG validation ==="
+          file app/src/main/res/mipmap-*/ic_launcher.png || true
+
       - name: Setup Gradle wrapper
         run: |
           curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/g.zip
@@ -31,7 +40,7 @@ jobs:
           chmod +x gradlew
 
       - name: Build
-        run: ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tail -80
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - uses: actions/upload-artifact@v4
         if: success()
@@ -39,9 +48,11 @@ jobs:
           name: hatzolah-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Show error details
+      - name: Debug failure
         if: failure()
         run: |
-          echo "=== Build failed. Checking for common issues ==="
-          find app/build -name "*.log" -exec cat {} \; 2>/dev/null | tail -50
-          find app/build/reports -type f -exec cat {} \; 2>/dev/null | tail -50
+          echo "=== Compiled resources ==="
+          find app/build -name "*.flat" -ls 2>/dev/null | head -20
+          echo "=== Resource errors ==="
+          find app/build -name "aapt2-*" -exec cat {} \; 2>/dev/null | tail -30
+          find app/build -name "*.log" -exec tail -20 {} \; 2>/dev/null
