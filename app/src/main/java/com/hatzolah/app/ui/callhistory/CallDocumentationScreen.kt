@@ -1,30 +1,42 @@
 package com.hatzolah.app.ui.callhistory
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.ui.supplies.SuppliesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallDocumentationScreen(
     callLogId: Long,
     onBack: () -> Unit,
-    viewModel: CallDocumentationViewModel = hiltViewModel()
+    viewModel: CallDocumentationViewModel = hiltViewModel(),
+    suppliesViewModel: SuppliesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var suppliesNeeded by remember { mutableStateOf("") }
 
     LaunchedEffect(callLogId) {
         viewModel.loadCallLog(callLogId)
     }
 
     LaunchedEffect(uiState.saved) {
-        if (uiState.saved) onBack()
+        if (uiState.saved) {
+            // When saving the call, also log any supplies that were used
+            if (suppliesNeeded.isNotBlank()) {
+                suppliesViewModel.addFromMultiLine(suppliesNeeded, callLogId)
+            }
+            onBack()
+        }
     }
 
     Scaffold(
@@ -43,7 +55,8 @@ fun CallDocumentationScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OutlinedTextField(
@@ -71,16 +84,74 @@ fun CallDocumentationScreen(
                 maxLines = 10
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Supply restock section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Inventory,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Supplies Used",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "One item per line. Use \"2x gauze\" for quantities. Items will be added to your restock list.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = suppliesNeeded,
+                        onValueChange = { suppliesNeeded = it },
+                        label = { Text("Items to restock") },
+                        placeholder = {
+                            Text(
+                                "2x gauze\n" +
+                                        "1 IV kit\n" +
+                                        "mask"
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 3,
+                        maxLines = 8
+                    )
+                }
+            }
+
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Button(
                 onClick = viewModel::saveDocumentation,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading
             ) {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Save Documentation")
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Save Documentation")
+                }
             }
 
             Text(

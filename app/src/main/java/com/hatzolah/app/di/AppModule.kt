@@ -9,6 +9,7 @@ import com.hatzolah.app.data.database.dao.CallLogDao
 import com.hatzolah.app.data.database.dao.HospitalDao
 import com.hatzolah.app.data.database.dao.MemberDao
 import com.hatzolah.app.data.database.dao.ResidentDao
+import com.hatzolah.app.data.database.dao.SupplyRequestDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -74,6 +75,9 @@ object AppModule {
 
     @Provides
     fun provideResidentDao(database: HatzolahDatabase): ResidentDao = database.residentDao()
+
+    @Provides
+    fun provideSupplyRequestDao(database: HatzolahDatabase): SupplyRequestDao = database.supplyRequestDao()
 
     @Provides
     fun provideCallLogDao(database: HatzolahDatabase): CallLogDao = database.callLogDao()

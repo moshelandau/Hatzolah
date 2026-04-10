@@ -23,6 +23,7 @@ import com.hatzolah.app.ui.member.MemberDirectoryScreen
 import com.hatzolah.app.ui.protocols.ProtocolsScreen
 import com.hatzolah.app.ui.residents.ResidentsScreen
 import com.hatzolah.app.ui.rma.RmaScreen
+import com.hatzolah.app.ui.supplies.SuppliesScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "Home", Icons.Default.Home)
@@ -31,6 +32,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Members : Screen("members", "Members", Icons.Default.People)
     data object Analytics : Screen("analytics", "Stats", Icons.Default.BarChart)
     data object CallHistory : Screen("call_history", "Calls", Icons.Default.History)
+    data object Supplies : Screen("supplies", "Supplies", Icons.Default.Inventory)
     data object Rma : Screen("rma", "RMA", Icons.Default.Call)
     data object Protocols : Screen("protocols", "Protocols", Icons.Default.MedicalServices)
     data object Admin : Screen("admin", "Admin", Icons.Default.AdminPanelSettings)
@@ -51,6 +53,7 @@ val drawerItems = listOf(
     Screen.Residents,
     Screen.Members,
     Screen.CallHistory,
+    Screen.Supplies,
     Screen.Analytics,
     Screen.Rma,
     Screen.Protocols,
@@ -137,6 +140,7 @@ fun AppNavigation() {
                 )
             }
             composable(Screen.Protocols.route) { ProtocolsScreen() }
+            composable(Screen.Supplies.route) { SuppliesScreen() }
             composable(Screen.Admin.route) { AdminScreen() }
             composable(
                 route = "document/{callId}",
