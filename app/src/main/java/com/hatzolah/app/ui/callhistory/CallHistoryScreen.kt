@@ -214,9 +214,23 @@ fun CallHistoryScreen(
                                 }
                             }
 
-                            // Document button
+                            // Medical notes preview
+                            if (call.medicalNotes.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Notes, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        text = call.medicalNotes.take(80) + if (call.medicalNotes.length > 80) "..." else "",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            // Action buttons - always show
+                            Spacer(modifier = Modifier.height(10.dp))
                             if (!call.isDocumented) {
-                                Spacer(modifier = Modifier.height(10.dp))
                                 Button(
                                     onClick = { onDocumentCall(call.id) },
                                     modifier = Modifier.fillMaxWidth(),
@@ -228,6 +242,16 @@ fun CallHistoryScreen(
                                     Icon(Icons.Default.Edit, null, Modifier.size(16.dp))
                                     Spacer(Modifier.width(6.dp))
                                     Text("Document Call", fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { onDocumentCall(call.id) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Visibility, null, Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("View / Edit Details", fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

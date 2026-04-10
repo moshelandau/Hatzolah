@@ -113,6 +113,13 @@ class DispatchAlertActivity : ComponentActivity() {
                             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
                             nm.cancel(1001)
                         } catch (_: Throwable) {}
+                        // Navigate back to MainActivity so user lands on home screen
+                        try {
+                            val mainIntent = Intent(this@DispatchAlertActivity, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            }
+                            startActivity(mainIntent)
+                        } catch (_: Throwable) {}
                         finish()
                     }
                 )
