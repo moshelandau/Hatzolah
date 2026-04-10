@@ -39,23 +39,23 @@ object AppModule {
                 // (e.g. hospital names containing apostrophes like "Children's Hospital")
                 val insertSql = "INSERT INTO hospitals (name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 val hospitals = listOf(
-                    arrayOf("ORMC", "707 E Main St, Middletown, NY 10940", "ER door 1281, EMS room 3540", "Door to ER from Shabbos room 354*", "", "", "0.0", "0.0", "845-333-1700", "", "", "", "", ""),
-                    arrayOf("Good Samaritan Hospital", "257 Lafayette Ave, Suffern, NY 10901", "ER door 119*, EMS #4394", "Door to OB Elevator 1254*", "", "", "0.0", "0.0", "845-368-5029", "845-671-0738", "", "", "", ""),
-                    arrayOf("Westchester Medical Center", "100 Woods Rd, Valhalla, NY 10595", "ER 803*", "", "", "", "0.0", "0.0", "914-493-7307", "", "{\"Peds\":\"914-493-6001\",\"Adult\":\"914-493-6000\"}", "", "", ""),
-                    arrayOf("St Anthony Community Hospital", "15 Maple Ave, Warwick, NY 10990", "", "", "", "", "0.0", "0.0", "845-987-5125", "", "", "", "", ""),
-                    arrayOf("Valley Hospital", "", "Door# 07652, Door 07450 or 10950", "", "", "", "0.0", "0.0", "201-251-3465", "", "", "", "", ""),
-                    arrayOf("NYU Langone ER", "", "ER code 0911", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Harris ER", "", "ER 796*, disp code 791", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Ellenville Regional Hospital", "", "Code 552", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Lenox Hill Hospital ER", "", "ER code 9111", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Hackensack University Medical Center", "", "", "", "", "", "0.0", "0.0", "", "", "{\"Peds\":\"551-996-5430\",\"Peds2\":\"551-996-8912\",\"Adult ER\":\"551-996-2612\"}", "", "", ""),
-                    arrayOf("Maimonides Medical Center", "", "Code 0911", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Stamford Hospital", "", "Code 6-7-8-9", "", "", "", "0.0", "0.0", "", "", "", "", "", ""),
-                    arrayOf("Englewood Hospital", "", "ER Door 90211", "", "", "", "0.0", "0.0", "201-894-3960", "", "", "", "", ""),
-                    arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY", "ER door 134#", "", "", "", "0.0", "0.0", "845-561-4400", "", "", "", "", ""),
-                    arrayOf("NewYork-Presbyterian Morgan Stanley Children's Hospital", "3959 Broadway, New York, NY 10032", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "Columbia Pediatrics"),
-                    arrayOf("NewYork-Presbyterian Emergency Room", "622 W 168th St, New York, NY 10032", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "Columbia Adults"),
-                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY", "", "", "", "", "0.0", "0.0", "718-920-5731", "", "", "", "", "")
+                    arrayOf("ORMC", "707 E Main St, Middletown, NY 10940", "ER door 1281, EMS room 3540", "Door to ER from Shabbos room 354*", "", "", "41.4459", "-74.4229", "845-333-1700", "", "", "", "", ""),
+                    arrayOf("Good Samaritan Hospital", "257 Lafayette Ave, Suffern, NY 10901", "ER door 119*, EMS #4394", "Door to OB Elevator 1254*", "", "", "41.1148", "-74.1496", "845-368-5029", "845-671-0738", "", "", "", ""),
+                    arrayOf("Westchester Medical Center", "100 Woods Rd, Valhalla, NY 10595", "ER 803*", "", "", "", "41.0759", "-73.7787", "914-493-7307", "", "{\"Peds\":\"914-493-6001\",\"Adult\":\"914-493-6000\"}", "", "", ""),
+                    arrayOf("St Anthony Community Hospital", "15 Maple Ave, Warwick, NY 10990", "", "", "", "", "41.2565", "-74.3560", "845-987-5125", "", "", "", "", ""),
+                    arrayOf("Valley Hospital", "223 N Van Dien Ave, Ridgewood, NJ 07450", "Door# 07652, Door 07450 or 10950", "", "", "", "40.9793", "-74.1166", "201-251-3465", "", "", "", "", ""),
+                    arrayOf("NYU Langone ER", "550 1st Ave, New York, NY 10016", "ER code 0911", "", "", "", "40.7421", "-73.9739", "", "", "", "", "", ""),
+                    arrayOf("Harris ER", "8118 13th Ave, Brooklyn, NY 11228", "ER 796*, disp code 791", "", "", "", "40.6198", "-74.0003", "", "", "", "", "", ""),
+                    arrayOf("Ellenville Regional Hospital", "10 Healthy Way, Ellenville, NY 12428", "Code 552", "", "", "", "41.7172", "-74.3969", "", "", "", "", "", ""),
+                    arrayOf("Lenox Hill Hospital ER", "100 E 77th St, New York, NY 10075", "ER code 9111", "", "", "", "40.7731", "-73.9622", "", "", "", "", "", ""),
+                    arrayOf("Hackensack University Medical Center", "30 Prospect Ave, Hackensack, NJ 07601", "", "", "", "", "40.8856", "-74.0637", "", "", "{\"Peds\":\"551-996-5430\",\"Peds2\":\"551-996-8912\",\"Adult ER\":\"551-996-2612\"}", "", "", ""),
+                    arrayOf("Maimonides Medical Center", "4802 10th Ave, Brooklyn, NY 11219", "Code 0911", "", "", "", "40.6354", "-73.9864", "", "", "", "", "", ""),
+                    arrayOf("Stamford Hospital", "1 Hospital Plaza, Stamford, CT 06902", "Code 6-7-8-9", "", "", "", "41.0534", "-73.5387", "", "", "", "", "", ""),
+                    arrayOf("Englewood Hospital", "350 Engle St, Englewood, NJ 07631", "ER Door 90211", "", "", "", "40.8932", "-73.9726", "201-894-3960", "", "", "", "", ""),
+                    arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY 12550", "ER door 134#", "", "", "", "41.5034", "-74.0104", "845-561-4400", "", "", "", "", ""),
+                    arrayOf("NewYork-Presbyterian Morgan Stanley Children's Hospital", "3959 Broadway, New York, NY 10032", "", "", "", "", "40.8403", "-73.9418", "", "", "", "", "", "Columbia Pediatrics"),
+                    arrayOf("NewYork-Presbyterian Emergency Room", "622 W 168th St, New York, NY 10032", "", "", "", "", "40.8421", "-73.9422", "", "", "", "", "", "Columbia Adults"),
+                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "")
                 )
                 for (h in hospitals) {
                     db.execSQL(insertSql, h)
