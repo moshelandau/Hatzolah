@@ -24,7 +24,7 @@ object AppModule {
             context,
             HatzolahDatabase::class.java,
             "hatzolah_database"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     @Provides

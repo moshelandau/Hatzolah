@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
+import com.hatzolah.app.data.database.entity.CallLog
+import com.hatzolah.app.data.repository.CallLogRepository
 import com.hatzolah.app.util.DispatchNotificationHelper
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,6 +24,7 @@ class SmsReceiver : BroadcastReceiver() {
     @Inject lateinit var smsParser: SmsParser
     @Inject lateinit var notificationHelper: DispatchNotificationHelper
     @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var callLogRepository: CallLogRepository
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
@@ -44,13 +47,30 @@ class SmsReceiver : BroadcastReceiver() {
 
     private fun handleDispatchMessage(context: Context, message: String) {
         val parsed = smsParser.parseDispatchMessage(message) ?: return
+        val memberId = preferencesManager.getLoggedInMemberId()
 
-        CoroutineScope(Dispatchers.Main).launch {
-            notificationHelper.showDispatchNotification(
-                context = context,
-                address = parsed.address,
-                callType = parsed.callType
-            )
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Create a call log entry for this dispatch
+                if (memberId != -1L) {
+                    callLogRepository.addCallLog(
+                        CallLog(
+                            memberId = memberId,
+                            date = System.currentTimeMillis(),
+                            dispatchAddress = parsed.address
+                        )
+                    )
+                }
+
+                notificationHelper.showDispatchNotification(
+                    context = context,
+                    address = parsed.address,
+                    callType = parsed.callType
+                )
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 
