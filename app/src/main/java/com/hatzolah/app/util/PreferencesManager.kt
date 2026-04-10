@@ -19,6 +19,15 @@ class PreferencesManager @Inject constructor(
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
         private const val KEY_RMA_HOTLINE = "rma_hotline"
         private const val KEY_VERIFICATION_CODE = "verification_code"
+
+        // Active dispatch state (persists so the alert can reappear on unfold/wake)
+        private const val KEY_ACTIVE_DISPATCH = "active_dispatch"
+        private const val KEY_DISPATCH_ADDRESS = "active_dispatch_address"
+        private const val KEY_DISPATCH_CALL_TYPE = "active_dispatch_call_type"
+        private const val KEY_DISPATCH_RAW = "active_dispatch_raw"
+        private const val KEY_DISPATCH_UNITS = "active_dispatch_units"
+        private const val KEY_DISPATCH_AGE = "active_dispatch_age"
+        private const val KEY_DISPATCH_TIMESTAMP = "active_dispatch_timestamp"
     }
 
     fun getDispatchNumber(): String = prefs.getString(KEY_DISPATCH_NUMBER, "") ?: ""
@@ -35,6 +44,62 @@ class PreferencesManager @Inject constructor(
 
     fun setVerificationCode(code: String) = prefs.edit().putString(KEY_VERIFICATION_CODE, code).apply()
     fun getVerificationCode(): String = prefs.getString(KEY_VERIFICATION_CODE, "") ?: ""
+
+    // Active dispatch state - auto-expires after 30 minutes
+    fun setActiveDispatch(address: String, callType: String, rawMessage: String, units: String, age: String) {
+        prefs.edit()
+            .putBoolean(KEY_ACTIVE_DISPATCH, true)
+            .putString(KEY_DISPATCH_ADDRESS, address)
+            .putString(KEY_DISPATCH_CALL_TYPE, callType)
+            .putString(KEY_DISPATCH_RAW, rawMessage)
+            .putString(KEY_DISPATCH_UNITS, units)
+            .putString(KEY_DISPATCH_AGE, age)
+            .putLong(KEY_DISPATCH_TIMESTAMP, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun hasActiveDispatch(): Boolean {
+        if (!prefs.getBoolean(KEY_ACTIVE_DISPATCH, false)) return false
+        val ts = prefs.getLong(KEY_DISPATCH_TIMESTAMP, 0)
+        val ageMs = System.currentTimeMillis() - ts
+        // Auto-expire after 30 minutes to prevent stale alerts
+        if (ageMs > 30 * 60 * 1000) {
+            clearActiveDispatch()
+            return false
+        }
+        return true
+    }
+
+    data class ActiveDispatch(
+        val address: String,
+        val callType: String,
+        val rawMessage: String,
+        val units: String,
+        val age: String
+    )
+
+    fun getActiveDispatch(): ActiveDispatch? {
+        if (!hasActiveDispatch()) return null
+        return ActiveDispatch(
+            address = prefs.getString(KEY_DISPATCH_ADDRESS, "") ?: "",
+            callType = prefs.getString(KEY_DISPATCH_CALL_TYPE, "") ?: "",
+            rawMessage = prefs.getString(KEY_DISPATCH_RAW, "") ?: "",
+            units = prefs.getString(KEY_DISPATCH_UNITS, "") ?: "",
+            age = prefs.getString(KEY_DISPATCH_AGE, "") ?: ""
+        )
+    }
+
+    fun clearActiveDispatch() {
+        prefs.edit()
+            .remove(KEY_ACTIVE_DISPATCH)
+            .remove(KEY_DISPATCH_ADDRESS)
+            .remove(KEY_DISPATCH_CALL_TYPE)
+            .remove(KEY_DISPATCH_RAW)
+            .remove(KEY_DISPATCH_UNITS)
+            .remove(KEY_DISPATCH_AGE)
+            .remove(KEY_DISPATCH_TIMESTAMP)
+            .apply()
+    }
 
     fun clearSession() {
         prefs.edit()

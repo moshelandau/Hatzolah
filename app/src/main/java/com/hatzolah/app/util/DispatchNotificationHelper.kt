@@ -9,20 +9,31 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.R
+import com.hatzolah.app.data.database.entity.CallLog
+import com.hatzolah.app.data.repository.CallLogRepository
 import com.hatzolah.app.service.SmsParser
 import com.hatzolah.app.ui.DispatchAlertActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class DispatchNotificationHelper @Inject constructor(
-    private val smsParser: SmsParser
+    private val smsParser: SmsParser,
+    private val preferencesManager: PreferencesManager,
+    private val callLogRepository: CallLogRepository
 ) {
+    private val dbScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     companion object {
         const val DISPATCH_NOTIFICATION_ID = 1001
         private const val PI_REQUEST_ALERT_BASE = 10000
@@ -38,6 +49,26 @@ class DispatchNotificationHelper @Inject constructor(
         units: String = "",
         age: String = ""
     ) {
+        // Persist the dispatch so it can be re-shown when user unfolds/unlocks
+        preferencesManager.setActiveDispatch(address, callType, rawMessage, units, age)
+
+        // Save to call history - every dispatch creates a call log entry
+        dbScope.launch {
+            try {
+                val memberId = preferencesManager.getLoggedInMemberId()
+                callLogRepository.addCallLog(
+                    CallLog(
+                        memberId = memberId,
+                        date = System.currentTimeMillis(),
+                        dispatchAddress = address,
+                        outcome = callType,
+                        medicalNotes = rawMessage,
+                        isDocumented = false
+                    )
+                )
+            } catch (_: Throwable) { /* don't crash on DB error */ }
+        }
+
         // Unique request codes per dispatch - bounded integers (Bugs #3, #22)
         val requestId = requestCounter.incrementAndGet() and 0xFFFF
         val alertRequestCode = PI_REQUEST_ALERT_BASE + requestId

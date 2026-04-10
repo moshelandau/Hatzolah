@@ -45,6 +45,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestRequiredPermissions()
 
+        // If there's an active dispatch, show the alert immediately (e.g. after unfold/unlock)
+        showActiveDispatchIfAny()
+
         setContent {
             HatzolahTheme {
                 var isLoggedIn by remember { mutableStateOf(preferencesManager.isLoggedIn()) }
@@ -70,6 +73,29 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // When user comes back to the app (e.g. unfolds phone), check for active dispatch
+        showActiveDispatchIfAny()
+    }
+
+    private fun showActiveDispatchIfAny() {
+        val active = try { preferencesManager.getActiveDispatch() } catch (_: Throwable) { null }
+        if (active != null) {
+            try {
+                val intent = DispatchAlertActivity.createIntent(
+                    this,
+                    active.address,
+                    active.callType,
+                    active.rawMessage,
+                    active.units,
+                    active.age
+                )
+                startActivity(intent)
+            } catch (_: Throwable) {}
         }
     }
 

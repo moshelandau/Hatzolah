@@ -25,12 +25,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hatzolah.app.ui.theme.HatzolahTheme
+import com.hatzolah.app.util.PreferencesManager
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Full-screen dispatch alert that takes over the entire screen,
  * shows on lock screen, and stays until the user dismisses it.
+ * Persists across unfold/unlock/restart via PreferencesManager.
  */
+@AndroidEntryPoint
 class DispatchAlertActivity : ComponentActivity() {
+
+    @Inject lateinit var preferencesManager: PreferencesManager
 
     companion object {
         const val EXTRA_ADDRESS = "dispatch_address"
@@ -91,10 +98,26 @@ class DispatchAlertActivity : ComponentActivity() {
                     units = units,
                     age = age,
                     onNavigate = { navigateToAddress(address) },
-                    onDismiss = { finish() }
+                    onDismiss = {
+                        // Clear persisted dispatch so it doesn't re-show on next launch
+                        try { preferencesManager.clearActiveDispatch() } catch (_: Throwable) {}
+                        // Also cancel the notification
+                        try {
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                            nm.cancel(1001)
+                        } catch (_: Throwable) {}
+                        finish()
+                    }
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // Re-create with new data
+        recreate()
     }
 
     private fun navigateToAddress(address: String) {
