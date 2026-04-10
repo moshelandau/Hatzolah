@@ -3,16 +3,16 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8394728  17060 -rw-r--r--   1 runner   runner   17466695 Apr 10 04:40 app/build/outputs/apk/debug/app-debug.apk
+  8918859  17060 -rw-r--r--   1 runner   runner   17466651 Apr 10 05:47 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:desugarDebugFileDependencies
 > Task :app:mergeDebugJniLibFolders
+> Task :app:processDebugManifestForPackage
 > Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugNativeLibs NO-SOURCE
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeLibDexDebug
 > Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:processDebugResources
@@ -25,7 +25,7 @@
 > Task :app:kaptDebugKotlin
 
 > Task :app:compileDebugKotlin
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:177:5 Parameter 'rawMessage' is never used
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:191:5 Parameter 'rawMessage' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/analytics/AnalyticsScreen.kt:68:44 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallDocumentationScreen.kt:48:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/dashboard/DashboardScreen.kt:202:46 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 28s
+BUILD SUCCESSFUL in 1m 26s
 40 actionable tasks: 40 executed
