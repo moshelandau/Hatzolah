@@ -34,7 +34,7 @@ import com.hatzolah.app.ui.supplies.SuppliesScreen
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "Home", Icons.Default.Home)
     data object Hospitals : Screen("hospitals", "Hospitals", Icons.Default.LocalHospital)
-    data object Residents : Screen("residents", "Phone Book", Icons.Default.ContactPhone)
+    data object Residents : Screen("residents", "Phones", Icons.Default.ContactPhone)
     data object Members : Screen("members", "Members", Icons.Default.People)
     data object Analytics : Screen("analytics", "Stats", Icons.Default.BarChart)
     data object CallHistory : Screen("call_history", "Calls", Icons.Default.History)
