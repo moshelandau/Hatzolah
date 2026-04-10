@@ -45,14 +45,16 @@ class DispatchAlertActivity : ComponentActivity() {
         const val EXTRA_RAW_MESSAGE = "dispatch_raw_message"
         const val EXTRA_UNITS = "dispatch_units"
         const val EXTRA_AGE = "dispatch_age"
+        const val EXTRA_ROOM = "dispatch_room"
 
-        fun createIntent(context: Context, address: String, callType: String, rawMessage: String, units: String = "", age: String = ""): Intent {
+        fun createIntent(context: Context, address: String, callType: String, rawMessage: String, units: String = "", age: String = "", room: String = ""): Intent {
             return Intent(context, DispatchAlertActivity::class.java).apply {
                 putExtra(EXTRA_ADDRESS, address)
                 putExtra(EXTRA_CALL_TYPE, callType)
                 putExtra(EXTRA_RAW_MESSAGE, rawMessage)
                 putExtra(EXTRA_UNITS, units)
                 putExtra(EXTRA_AGE, age)
+                putExtra(EXTRA_ROOM, room)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -84,8 +86,9 @@ class DispatchAlertActivity : ComponentActivity() {
         val rawMessage = intent.getStringExtra(EXTRA_RAW_MESSAGE) ?: ""
         val units = intent.getStringExtra(EXTRA_UNITS) ?: ""
         val age = intent.getStringExtra(EXTRA_AGE) ?: ""
+        val room = intent.getStringExtra(EXTRA_ROOM) ?: ""
 
-        // Parse unit number from address
+        // Extract unit number from address (e.g. #011 from "3 Hamaspik Way #011")
         val unitNumber = extractUnitNumber(address)
 
         setContent {
@@ -94,6 +97,7 @@ class DispatchAlertActivity : ComponentActivity() {
                     address = address,
                     callType = callType,
                     unitNumber = unitNumber,
+                    room = room,
                     rawMessage = rawMessage,
                     units = units,
                     age = age,
@@ -190,6 +194,7 @@ fun DispatchAlertScreen(
     address: String,
     callType: String,
     unitNumber: String,
+    room: String = "",
     rawMessage: String,
     units: String = "",
     age: String = "",
@@ -291,21 +296,67 @@ fun DispatchAlertScreen(
                         lineHeight = 36.sp
                     )
 
-                    // Unit number - extra large
-                    if (unitNumber.isNotBlank()) {
+                    // Unit + Room - shown big so responder can see at a glance
+                    if (unitNumber.isNotBlank() || room.isNotBlank()) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1565C0)),
-                            shape = RoundedCornerShape(12.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = unitNumber.uppercase(),
-                                fontSize = 48.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color.White,
-                                modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
-                                textAlign = TextAlign.Center
-                            )
+                            if (unitNumber.isNotBlank()) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1565C0)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            text = "UNIT",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                        Text(
+                                            text = unitNumber.uppercase(),
+                                            fontSize = 42.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
+                            if (unitNumber.isNotBlank() && room.isNotBlank()) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+                            if (room.isNotBlank()) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF6A1B9A)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            text = "ROOM",
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                        Text(
+                                            text = room,
+                                            fontSize = 42.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color.White,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -66,7 +66,8 @@ class SmsReceiver : BroadcastReceiver() {
                             callType = parsed.callType,
                             rawMessage = body,
                             units = parsed.units,
-                            age = parsed.age
+                            age = parsed.age,
+                            room = parsed.room
                         )
                     } catch (_: Throwable) { /* don't crash receiver */ }
                 }

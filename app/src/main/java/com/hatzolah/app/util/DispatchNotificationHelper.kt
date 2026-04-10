@@ -47,7 +47,8 @@ class DispatchNotificationHelper @Inject constructor(
         callType: String = "",
         rawMessage: String = "",
         units: String = "",
-        age: String = ""
+        age: String = "",
+        room: String = ""
     ) {
         // Persist the dispatch so it can be re-shown when user unfolds/unlocks
         preferencesManager.setActiveDispatch(address, callType, rawMessage, units, age)
@@ -86,7 +87,7 @@ class DispatchNotificationHelper @Inject constructor(
 
         try {
             val alertIntent = DispatchAlertActivity.createIntent(
-                context, address, callType, rawMessage, units, age
+                context, address, callType, rawMessage, units, age, room
             )
             val alertPendingIntent = PendingIntent.getActivity(
                 context, alertRequestCode, alertIntent,
