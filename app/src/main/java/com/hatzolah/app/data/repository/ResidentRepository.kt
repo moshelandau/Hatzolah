@@ -40,6 +40,9 @@ class ResidentRepository @Inject constructor(
      *
      * Lines starting with # are skipped as comments.
      * Empty fields are allowed.
+     *
+     * Note: Family relationships (fatherId, fatherInLawId) are not part of CSV import
+     * and must be set manually through the UI after import.
      */
     suspend fun importFromCsv(csv: String): Int {
         val residents = csv.lines()

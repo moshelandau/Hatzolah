@@ -26,6 +26,7 @@ class DashboardViewModel @Inject constructor(
 
     private val memberId = preferencesManager.getLoggedInMemberId()
 
+    // Nested combine required: Kotlin's typed combine() supports max 5 parameters
     val uiState: StateFlow<DashboardUiState> = combine(
         callLogRepository.getMostRecentCall(),
         callLogRepository.getTotalCallCount(),

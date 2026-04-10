@@ -29,6 +29,9 @@ class DispatchNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        // Clear any stale callbacks to prevent handler leak if onDestroy wasn't called
+        try { mainHandler.removeCallbacksAndMessages(null) } catch (_: Throwable) {}
+
         val pkg = sbn.packageName
         if (!isSmsApp(pkg)) return
 

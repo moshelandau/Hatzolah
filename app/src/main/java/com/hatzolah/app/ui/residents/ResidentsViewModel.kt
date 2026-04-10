@@ -104,7 +104,7 @@ class ResidentsViewModel @Inject constructor(
                     _importMessage.value = "Imported $added residents"
                 }
             } catch (e: Throwable) {
-                _importMessage.value = "Import failed: ${e.message}"
+                _importMessage.value = "Import partially failed: ${e.message}. Some records may have been imported."
             }
         }
     }

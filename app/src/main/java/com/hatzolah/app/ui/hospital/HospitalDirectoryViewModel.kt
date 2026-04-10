@@ -52,6 +52,7 @@ class HospitalDirectoryViewModel @Inject constructor(
             }
             hospitalsFlow.map { hospitals ->
                 val withDistance = hospitals.map { h ->
+                    // Invalid coordinates (outside -90..90 / -180..180) yield null distance
                     val dist = if (loc.first != 0.0 && loc.second != 0.0
                         && h.latitude != 0.0 && h.longitude != 0.0
                         && h.latitude in -90.0..90.0 && h.longitude in -180.0..180.0

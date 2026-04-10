@@ -44,6 +44,9 @@ class AnalyticsViewModel @Inject constructor(
         endOfMonth = calendar.timeInMillis
     }
 
+    // Nested combine is needed because Kotlin's typed combine() overload supports
+    // at most 5 parameters. We combine 5 flows first, then chain a second combine
+    // with the remaining 2 flows.
     val uiState: StateFlow<AnalyticsUiState> = combine(
         callLogRepository.getTotalCallCount(),
         callLogRepository.getTotalTeamMiles(),

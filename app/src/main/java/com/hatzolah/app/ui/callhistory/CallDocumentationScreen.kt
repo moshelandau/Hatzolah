@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -28,12 +29,13 @@ fun CallDocumentationScreen(
 
     LaunchedEffect(uiState.saved) {
         if (uiState.saved) {
-            // When saving the call, also save supplies
+            // Supplies are only added after call is successfully saved
             if (uiState.suppliesNeeded.isNotBlank()) {
                 viewModel.addSupplies(uiState.suppliesNeeded, callLogId)
             }
-            onBack()
+            // Reset saved state before navigating back to guarantee it runs
             viewModel.resetSaved()
+            onBack()
         }
     }
 
@@ -49,6 +51,31 @@ fun CallDocumentationScreen(
             )
         }
     ) { padding ->
+        // If there's an error and no data was loaded, show a prominent error card instead of the form
+        if (uiState.error != null && uiState.patientName.isBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = uiState.error ?: "Unknown error",
+                        modifier = Modifier.padding(24.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            return@Scaffold
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -90,7 +117,7 @@ fun CallDocumentationScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Inventory,
                             contentDescription = null,

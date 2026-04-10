@@ -115,9 +115,12 @@ class SmsParser @Inject constructor() {
     }
 
     /**
-     * Strips unit/apt/room numbers from an address for Google Maps navigation.
-     * Google Maps can't route to "3 Hamaspik Way #011" but CAN route to "3 Hamaspik Way, Monroe 10950".
-     * The unit info is shown on the dispatch screen separately.
+     * Formats an address for use in Google Maps navigation URLs.
+     * Strips unit/apt/room numbers (which confuse Google Maps routing) and URI-encodes
+     * the result. E.g. "3 Hamaspik Way #011, Monroe 10950" -> "3%20Hamaspik%20Way%2C%20Monroe%2010950".
+     *
+     * Compare with [cleanAddress], which is for display only -- it just normalizes
+     * whitespace without removing unit numbers or encoding.
      */
     fun formatForNavigation(address: String): String {
         var clean = address.trim()

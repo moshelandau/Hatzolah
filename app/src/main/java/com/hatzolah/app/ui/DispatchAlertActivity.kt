@@ -47,6 +47,7 @@ class DispatchAlertActivity : ComponentActivity() {
         const val EXTRA_AGE = "dispatch_age"
         const val EXTRA_ROOM = "dispatch_room"
 
+        // context is non-null by Kotlin type system
         fun createIntent(context: Context, address: String, callType: String, rawMessage: String, units: String = "", age: String = "", room: String = ""): Intent {
             return Intent(context, DispatchAlertActivity::class.java).apply {
                 putExtra(EXTRA_ADDRESS, address)
@@ -78,6 +79,7 @@ class DispatchAlertActivity : ComponentActivity() {
                 WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
             )
         }
+        // Note: OS may override KEEP_SCREEN_ON on critically low battery
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         if (intent == null) { finish(); return }

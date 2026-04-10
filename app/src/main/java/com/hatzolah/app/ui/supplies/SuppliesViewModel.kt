@@ -1,5 +1,6 @@
 package com.hatzolah.app.ui.supplies
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hatzolah.app.data.database.entity.SupplyRequest
@@ -20,10 +21,11 @@ data class SuppliesUiState(
 @HiltViewModel
 class SuppliesViewModel @Inject constructor(
     private val repository: SupplyRepository,
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _tab = MutableStateFlow(0)
+    private val _tab = savedStateHandle.getStateFlow("tab", 0)
 
     val uiState: StateFlow<SuppliesUiState> = combine(
         repository.getPending(),
@@ -44,7 +46,7 @@ class SuppliesViewModel @Inject constructor(
     )
 
     fun onTabChanged(tab: Int) {
-        _tab.value = tab
+        savedStateHandle["tab"] = tab
     }
 
     fun addItem(name: String, quantity: Int, callLogId: Long? = null) {

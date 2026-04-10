@@ -124,7 +124,7 @@ fun ResidentsScreen(
             }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(uiState.residents, key = { it.id }) { resident ->
+                items(uiState.residents, key = { "${it.id}_${it.phoneNumber}" }) { resident ->
                     ResidentRow(
                         resident = resident,
                         onClick = { viewModel.selectResident(resident) },
@@ -157,6 +157,8 @@ fun ResidentsScreen(
         )
     }
 
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     if (showImportDialog) {
         ImportDialog(
             onDismiss = { showImportDialog = false },
@@ -165,8 +167,28 @@ fun ResidentsScreen(
                 showImportDialog = false
             },
             onDeleteAll = {
-                viewModel.deleteAll()
-                showImportDialog = false
+                showDeleteConfirm = true
+            }
+        )
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Confirm Delete") },
+            text = { Text("Delete all ${uiState.totalCount} residents? This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAll()
+                        showDeleteConfirm = false
+                        showImportDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Delete All") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
             }
         )
     }

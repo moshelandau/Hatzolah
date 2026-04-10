@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import android.widget.Toast
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -183,8 +185,12 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val callId = backStackEntry.arguments?.getLong("callId") ?: -1L
                 if (callId <= 0L) {
-                    // Invalid ID - pop back rather than try to load nothing
-                    LaunchedEffect(Unit) { navController.popBackStack() }
+                    // Invalid ID - show toast and pop back
+                    val context = LocalContext.current
+                    LaunchedEffect(Unit) {
+                        Toast.makeText(context, "Invalid call", Toast.LENGTH_SHORT).show()
+                        navController.popBackStack()
+                    }
                 } else {
                     CallDocumentationScreen(
                         callLogId = callId,

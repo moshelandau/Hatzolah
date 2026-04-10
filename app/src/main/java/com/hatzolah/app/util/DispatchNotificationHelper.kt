@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.absoluteValue
 
 @Singleton
 class DispatchNotificationHelper @Inject constructor(
@@ -33,6 +34,7 @@ class DispatchNotificationHelper @Inject constructor(
     private val preferencesManager: PreferencesManager,
     private val callLogRepository: CallLogRepository
 ) {
+    // Fire-and-forget DB write. SupervisorJob prevents parent cancellation.
     private val dbScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     companion object {
         const val DISPATCH_NOTIFICATION_ID = 1001
@@ -71,7 +73,7 @@ class DispatchNotificationHelper @Inject constructor(
         }
 
         // Unique request codes per dispatch - bounded integers (Bugs #3, #22)
-        val requestId = requestCounter.incrementAndGet() and 0xFFFF
+        val requestId = (requestCounter.incrementAndGet() % 10000).absoluteValue
         val alertRequestCode = PI_REQUEST_ALERT_BASE + requestId
         val mapRequestCode = PI_REQUEST_MAP_BASE + requestId
 
@@ -133,7 +135,7 @@ class DispatchNotificationHelper @Inject constructor(
                 context.startActivity(alertIntent)
             } catch (_: Throwable) { /* background launch blocked; notification handles it */ }
         } finally {
-            try { wl?.release() } catch (_: Throwable) { /* already released */ }
+            try { if (wl?.isHeld == true) wl.release() } catch (_: Throwable) { /* already released */ }
         }
     }
 
