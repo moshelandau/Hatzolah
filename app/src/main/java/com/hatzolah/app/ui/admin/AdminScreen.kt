@@ -27,10 +27,12 @@ fun AdminScreen(
     var showAddMemberDialog by remember { mutableStateOf(false) }
     var showAddHospitalDialog by remember { mutableStateOf(false) }
     var editingHospital by remember { mutableStateOf<com.hatzolah.app.data.database.entity.Hospital?>(null) }
+    var showAddUrgentCareDialog by remember { mutableStateOf(false) }
+    var editingUrgentCare by remember { mutableStateOf<com.hatzolah.app.data.database.entity.Hospital?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Tab row for Settings / Members / Hospitals
-        TabRow(selectedTabIndex = uiState.activeTab) {
+        // Tab row for Settings / Members / Hospitals / Urgent Care
+        ScrollableTabRow(selectedTabIndex = uiState.activeTab, edgePadding = 0.dp) {
             Tab(
                 selected = uiState.activeTab == 0,
                 onClick = { viewModel.onTabChanged(0) },
@@ -49,6 +51,12 @@ fun AdminScreen(
                 text = { Text("Hospitals") },
                 icon = { Icon(Icons.Default.LocalHospital, contentDescription = null) }
             )
+            Tab(
+                selected = uiState.activeTab == 3,
+                onClick = { viewModel.onTabChanged(3) },
+                text = { Text("Urgent Care") },
+                icon = { Icon(Icons.Default.MedicalServices, contentDescription = null) }
+            )
         }
 
         when (uiState.activeTab) {
@@ -58,6 +66,11 @@ fun AdminScreen(
                 uiState, viewModel,
                 onAddClick = { showAddHospitalDialog = true },
                 onEditClick = { hospital -> editingHospital = hospital }
+            )
+            3 -> UrgentCareTab(
+                uiState, viewModel,
+                onAddClick = { showAddUrgentCareDialog = true },
+                onEditClick = { uc -> editingUrgentCare = uc }
             )
         }
     }
@@ -93,6 +106,27 @@ fun AdminScreen(
             onSave = { updated ->
                 viewModel.updateHospital(updated)
                 editingHospital = null
+            }
+        )
+    }
+
+    if (showAddUrgentCareDialog) {
+        AddUrgentCareDialog(
+            onDismiss = { showAddUrgentCareDialog = false },
+            onAdd = { name, address, phone, contactPerson, notes ->
+                viewModel.addUrgentCare(name, address, phone, contactPerson, notes)
+                showAddUrgentCareDialog = false
+            }
+        )
+    }
+
+    editingUrgentCare?.let { uc ->
+        EditUrgentCareDialog(
+            urgentCare = uc,
+            onDismiss = { editingUrgentCare = null },
+            onSave = { updated ->
+                viewModel.updateUrgentCare(updated)
+                editingUrgentCare = null
             }
         )
     }
@@ -222,6 +256,7 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Registered Members: ${uiState.members.size}")
                 Text("Hospitals in Directory: ${uiState.hospitals.size}")
+                Text("Urgent Care Facilities: ${uiState.urgentCares.size}")
             }
         }
 
@@ -778,6 +813,235 @@ fun EditHospitalDialog(
                     )
                 },
                 enabled = name.isNotBlank() && address.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun UrgentCareTab(
+    uiState: AdminUiState,
+    viewModel: AdminViewModel,
+    onAddClick: () -> Unit,
+    onEditClick: (Hospital) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Urgent Care (${uiState.urgentCares.size})", style = MaterialTheme.typography.titleMedium)
+            FloatingActionButton(
+                onClick = onAddClick,
+                containerColor = MaterialTheme.colorScheme.tertiary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Urgent Care")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(uiState.urgentCares) { uc ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = uc.name, style = MaterialTheme.typography.titleSmall)
+                            if (uc.address.isNotBlank()) {
+                                Text(text = uc.address, style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (uc.mainHotline.isNotBlank()) {
+                                Text(text = "Phone: ${uc.mainHotline}", style = MaterialTheme.typography.bodySmall)
+                            }
+                            if (uc.additionalNotes.isNotBlank()) {
+                                Text(text = uc.additionalNotes, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        IconButton(onClick = { onEditClick(uc) }) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(onClick = { viewModel.deleteUrgentCare(uc) }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddUrgentCareDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String, String, String, String, String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var contactPerson by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Urgent Care Facility") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Facility Name *") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Address") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Phone Number") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = contactPerson,
+                    onValueChange = { contactPerson = it },
+                    label = { Text("Contact Person") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onAdd(name, address, phone, contactPerson, notes) },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun EditUrgentCareDialog(
+    urgentCare: Hospital,
+    onDismiss: () -> Unit,
+    onSave: (Hospital) -> Unit
+) {
+    var name by remember { mutableStateOf(urgentCare.name) }
+    var address by remember { mutableStateOf(urgentCare.address) }
+    var phone by remember { mutableStateOf(urgentCare.mainHotline) }
+    var contactPerson by remember { mutableStateOf(
+        urgentCare.departmentHotlines
+            .replace("{\"Contact\":\"", "")
+            .replace("\"}", "")
+            .let { if (it == urgentCare.departmentHotlines) "" else it }
+    ) }
+    var notes by remember { mutableStateOf(urgentCare.additionalNotes) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Urgent Care Facility") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Facility Name *") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Address") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Phone Number") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = contactPerson,
+                    onValueChange = { contactPerson = it },
+                    label = { Text("Contact Person") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Notes") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        urgentCare.copy(
+                            name = name,
+                            address = address,
+                            mainHotline = phone,
+                            departmentHotlines = if (contactPerson.isNotBlank()) "{\"Contact\":\"$contactPerson\"}" else "",
+                            additionalNotes = notes
+                        )
+                    )
+                },
+                enabled = name.isNotBlank()
             ) {
                 Text("Save")
             }

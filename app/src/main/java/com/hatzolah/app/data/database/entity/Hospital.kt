@@ -20,5 +20,11 @@ data class Hospital(
     val departmentHotlines: String = "", // JSON string of department -> hotline mappings
     val communicationSystem: String = "", // Tiger Connect, phone, etc.
     val bedAvailability: String = "",
-    val additionalNotes: String = ""
-)
+    val additionalNotes: String = "",
+    val facilityType: String = FACILITY_HOSPITAL // "HOSPITAL" or "URGENT_CARE"
+) {
+    companion object {
+        const val FACILITY_HOSPITAL = "HOSPITAL"
+        const val FACILITY_URGENT_CARE = "URGENT_CARE"
+    }
+}

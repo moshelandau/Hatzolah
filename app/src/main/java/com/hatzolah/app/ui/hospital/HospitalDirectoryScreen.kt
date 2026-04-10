@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.location.LocationServices
+import com.hatzolah.app.data.database.entity.Hospital
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,11 +56,28 @@ fun HospitalDirectoryScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        // Hospitals / Urgent Care tabs
+        TabRow(selectedTabIndex = uiState.selectedTab) {
+            Tab(
+                selected = uiState.selectedTab == 0,
+                onClick = { viewModel.onTabChanged(0); expandedId = -1L },
+                text = { Text("Hospitals") },
+                icon = { Icon(Icons.Default.LocalHospital, contentDescription = null) }
+            )
+            Tab(
+                selected = uiState.selectedTab == 1,
+                onClick = { viewModel.onTabChanged(1); expandedId = -1L },
+                text = { Text("Urgent Care") },
+                icon = { Icon(Icons.Default.MedicalServices, contentDescription = null) }
+            )
+        }
+
         // Search bar
+        val isUrgentCare = uiState.selectedTab == 1
         OutlinedTextField(
             value = uiState.searchQuery,
             onValueChange = viewModel::onSearchChanged,
-            placeholder = { Text("Search hospitals...") },
+            placeholder = { Text(if (isUrgentCare) "Search urgent care..." else "Search hospitals...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
                 Row {
@@ -90,7 +108,7 @@ fun HospitalDirectoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${uiState.hospitals.size} hospitals",
+                text = "${uiState.hospitals.size} ${if (isUrgentCare) "facilities" else "hospitals"}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -102,39 +120,257 @@ fun HospitalDirectoryScreen(
             )
         }
 
-        // Hospital list
+        // Facility list
         LazyColumn(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(uiState.hospitals, key = { it.hospital.id }) { item ->
-                HospitalCard(
-                    item = item,
-                    expanded = expandedId == item.hospital.id,
-                    onToggle = {
-                        expandedId = if (expandedId == item.hospital.id) -1L else item.hospital.id
-                    },
-                    onCall = { phone ->
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                        } catch (_: Throwable) {}
-                    },
-                    onNavigate = { address ->
-                        val encoded = Uri.encode(address.trim())
-                        try {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$encoded&mode=d"))
-                                    .apply { setPackage("com.google.android.apps.maps") }
-                            )
-                        } catch (_: Throwable) {
+                if (isUrgentCare) {
+                    UrgentCareCard(
+                        item = item,
+                        expanded = expandedId == item.hospital.id,
+                        onToggle = {
+                            expandedId = if (expandedId == item.hospital.id) -1L else item.hospital.id
+                        },
+                        onCall = { phone ->
                             try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                            } catch (_: Throwable) {}
+                        },
+                        onNavigate = { address ->
+                            val encoded = Uri.encode(address.trim())
+                            try {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$encoded&mode=d"))
+                                        .apply { setPackage("com.google.android.apps.maps") }
+                                )
                             } catch (_: Throwable) {
-                                Toast.makeText(context, "Could not open maps", Toast.LENGTH_SHORT).show()
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Could not open maps", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
+                    )
+                } else {
+                    HospitalCard(
+                        item = item,
+                        expanded = expandedId == item.hospital.id,
+                        onToggle = {
+                            expandedId = if (expandedId == item.hospital.id) -1L else item.hospital.id
+                        },
+                        onCall = { phone ->
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                            } catch (_: Throwable) {}
+                        },
+                        onNavigate = { address ->
+                            val encoded = Uri.encode(address.trim())
+                            try {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$encoded&mode=d"))
+                                        .apply { setPackage("com.google.android.apps.maps") }
+                                )
+                            } catch (_: Throwable) {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
+                                } catch (_: Throwable) {
+                                    Toast.makeText(context, "Could not open maps", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UrgentCareCard(
+    item: HospitalWithDistance,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onCall: (String) -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    val h = item.hospital
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(16.dp)
+        ) {
+            // Header row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Urgent care icon
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.tertiaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.MedicalServices,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = h.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Urgent Care",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (h.address.isNotBlank()) {
+                        Text(
+                            text = h.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Distance badge
+                item.distanceMiles?.let { dist ->
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = when {
+                            dist < 10 -> Color(0xFF2E7D32).copy(alpha = 0.12f)
+                            dist < 30 -> Color(0xFFE65100).copy(alpha = 0.12f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    ) {
+                        Text(
+                            text = if (dist < 1) "${String.format("%.1f", dist)} mi"
+                            else "${dist.toInt()} mi",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = when {
+                                dist < 10 -> Color(0xFF2E7D32)
+                                dist < 30 -> Color(0xFFE65100)
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Icon(
+                    if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // Quick info chips (collapsed)
+            if (!expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (h.mainHotline.isNotBlank()) {
+                        AssistChip(
+                            onClick = { onCall(h.mainHotline) },
+                            label = { Text(h.mainHotline, fontSize = 11.sp) },
+                            leadingIcon = { Icon(Icons.Default.Phone, null, Modifier.size(14.dp)) },
+                            modifier = Modifier.height(28.dp)
+                        )
+                    }
+                }
+            }
+
+            // Expanded details
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Divider()
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (h.additionalNotes.isNotBlank()) {
+                    InfoRow(Icons.Default.Note, "Notes", h.additionalNotes)
+                }
+
+                // Phone numbers
+                if (h.mainHotline.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { onCall(h.mainHotline) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Phone, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Call ${h.mainHotline}", fontSize = 13.sp)
+                    }
+                }
+
+                if (h.departmentHotlines.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Other Contacts",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = h.departmentHotlines
+                            .replace("{", "").replace("}", "")
+                            .replace("\"", "")
+                            .replace(",", "\n")
+                            .replace(":", ": "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            val phone = Regex("\\d[\\d\\s-]{6,}\\d").find(h.departmentHotlines)?.value
+                                ?.takeIf { it.count { c -> c.isDigit() } >= 7 }
+                            if (phone != null) onCall(phone)
+                        }
+                    )
+                }
+
+                if (h.address.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { onNavigate(h.address) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Navigation, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Navigate")
+                    }
+                }
             }
         }
     }
