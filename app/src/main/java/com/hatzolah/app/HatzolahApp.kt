@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.net.Uri
+import com.hatzolah.app.util.CrashLogger
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
@@ -17,6 +18,7 @@ class HatzolahApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashLogger(this).install()
         createNotificationChannels()
         setDefaultSettings()
     }

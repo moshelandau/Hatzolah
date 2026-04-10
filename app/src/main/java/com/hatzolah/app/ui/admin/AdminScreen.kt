@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -205,6 +206,54 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 Text("Registered Members: ${uiState.members.size}")
                 Text("Hospitals in Directory: ${uiState.hospitals.size}")
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Crash log viewer
+        val context = LocalContext.current
+        var showCrashLog by remember { mutableStateOf(false) }
+        var crashLogText by remember { mutableStateOf("") }
+
+        OutlinedButton(
+            onClick = {
+                crashLogText = com.hatzolah.app.util.CrashLogger.readLog(context)
+                showCrashLog = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.BugReport, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("View Crash Log")
+        }
+
+        if (showCrashLog) {
+            AlertDialog(
+                onDismissRequest = { showCrashLog = false },
+                title = { Text("Crash Log") },
+                text = {
+                    Column {
+                        Text(
+                            text = crashLogText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp)
+                                .verticalScroll(rememberScrollState())
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCrashLog = false }) { Text("Close") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        com.hatzolah.app.util.CrashLogger.clearLog(context)
+                        crashLogText = "Log cleared."
+                    }) { Text("Clear Log") }
+                }
+            )
         }
     }
 }
