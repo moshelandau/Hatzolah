@@ -1,6 +1,8 @@
 package com.hatzolah.app.ui.rma
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -11,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
@@ -38,8 +41,22 @@ fun RmaScreen(
         Button(
             onClick = {
                 if (uiState.rmaHotline.isNotBlank()) {
-                    val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:${uiState.rmaHotline}"))
-                    context.startActivity(intent)
+                    // Use ACTION_DIAL (no permission needed) with ACTION_CALL fallback
+                    val hasCallPermission = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.CALL_PHONE
+                    ) == PackageManager.PERMISSION_GRANTED
+                    val action = if (hasCallPermission) Intent.ACTION_CALL else Intent.ACTION_DIAL
+                    val intent = Intent(action, Uri.parse("tel:${uiState.rmaHotline}"))
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Throwable) {
+                        // Final fallback to dialer
+                        try {
+                            context.startActivity(
+                                Intent(Intent.ACTION_DIAL, Uri.parse("tel:${uiState.rmaHotline}"))
+                            )
+                        } catch (_: Throwable) {}
+                    }
                 }
             },
             modifier = Modifier

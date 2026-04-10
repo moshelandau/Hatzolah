@@ -136,13 +136,21 @@ fun AppNavigation() {
             composable(Screen.Admin.route) { AdminScreen() }
             composable(
                 route = "document/{callId}",
-                arguments = listOf(navArgument("callId") { type = NavType.LongType })
+                arguments = listOf(navArgument("callId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                })
             ) { backStackEntry ->
-                val callId = backStackEntry.arguments?.getLong("callId") ?: -1
-                CallDocumentationScreen(
-                    callLogId = callId,
-                    onBack = { navController.popBackStack() }
-                )
+                val callId = backStackEntry.arguments?.getLong("callId") ?: -1L
+                if (callId <= 0L) {
+                    // Invalid ID - pop back rather than try to load nothing
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    CallDocumentationScreen(
+                        callLogId = callId,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }

@@ -3,20 +3,20 @@ package com.hatzolah.app.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
 import com.hatzolah.app.util.DispatchNotificationHelper
 import com.hatzolah.app.util.PreferencesManager
-import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
- * Monitors incoming SMS messages and triggers dispatch processing
- * when a message arrives from the configured dispatch number.
+ * Fallback SMS receiver - only works if app is the default SMS handler
+ * or on older Android versions. The primary dispatch mechanism is
+ * DispatchNotificationListener which reads SMS notifications.
  */
 class SmsReceiver : BroadcastReceiver() {
 
@@ -31,42 +31,46 @@ class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
 
-        val entryPoint = EntryPointAccessors.fromApplication(
-            context.applicationContext, SmsReceiverEntryPoint::class.java
-        )
+        val entryPoint = try {
+            EntryPointAccessors.fromApplication(
+                context.applicationContext, SmsReceiverEntryPoint::class.java
+            )
+        } catch (_: Throwable) { return }
+
         val smsParser = entryPoint.smsParser()
         val preferencesManager = entryPoint.preferencesManager()
         val notificationHelper = entryPoint.notificationHelper()
 
-        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
         val dispatchNumber = preferencesManager.getDispatchNumber()
-
         if (dispatchNumber.isBlank()) return
+
+        val messages = try {
+            Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
+        } catch (_: Throwable) { return }
+
+        val dispatchTail = dispatchNumber.takeLast(10).filter { it.isDigit() }
+        if (dispatchTail.length < 7) return
 
         for (smsMessage in messages) {
             val sender = smsMessage.displayOriginatingAddress ?: continue
             val body = smsMessage.displayMessageBody ?: continue
 
             if (normalizePhone(sender) == normalizePhone(dispatchNumber)) {
-                handleDispatchMessage(context, smsParser, notificationHelper, body)
+                val parsed = smsParser.parseDispatchMessage(body) ?: continue
+                // Post back to main thread via handler instead of new scope
+                Handler(Looper.getMainLooper()).post {
+                    try {
+                        notificationHelper.showDispatchNotification(
+                            context = context.applicationContext,
+                            address = parsed.address,
+                            callType = parsed.callType,
+                            rawMessage = body,
+                            units = parsed.units,
+                            age = parsed.age
+                        )
+                    } catch (_: Throwable) { /* don't crash receiver */ }
+                }
             }
-        }
-    }
-
-    private fun handleDispatchMessage(
-        context: Context,
-        smsParser: SmsParser,
-        notificationHelper: DispatchNotificationHelper,
-        message: String
-    ) {
-        val parsed = smsParser.parseDispatchMessage(message) ?: return
-
-        CoroutineScope(Dispatchers.Main).launch {
-            notificationHelper.showDispatchNotification(
-                context = context,
-                address = parsed.address,
-                callType = parsed.callType
-            )
         }
     }
 

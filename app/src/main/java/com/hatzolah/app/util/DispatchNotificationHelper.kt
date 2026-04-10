@@ -15,6 +15,7 @@ import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.R
 import com.hatzolah.app.service.SmsParser
 import com.hatzolah.app.ui.DispatchAlertActivity
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,92 +25,135 @@ class DispatchNotificationHelper @Inject constructor(
 ) {
     companion object {
         const val DISPATCH_NOTIFICATION_ID = 1001
+        private const val PI_REQUEST_ALERT_BASE = 10000
+        private const val PI_REQUEST_MAP_BASE = 20000
+        private val requestCounter = AtomicInteger(0)
     }
 
-    fun showDispatchNotification(context: Context, address: String, callType: String = "", rawMessage: String = "", units: String = "", age: String = "") {
-        // 1. Wake the device FIRST
+    fun showDispatchNotification(
+        context: Context,
+        address: String,
+        callType: String = "",
+        rawMessage: String = "",
+        units: String = "",
+        age: String = ""
+    ) {
+        // Unique request codes per dispatch - bounded integers (Bugs #3, #22)
+        val requestId = requestCounter.incrementAndGet() and 0xFFFF
+        val alertRequestCode = PI_REQUEST_ALERT_BASE + requestId
+        val mapRequestCode = PI_REQUEST_MAP_BASE + requestId
+
+        // 1. Wake device with timed wake lock (auto-releases) - Bug #1
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        @Suppress("DEPRECATION")
-        val wl = pm.newWakeLock(
-            PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-            "hatzolah:dispatch"
-        )
-        wl.acquire(30000) // Keep screen on for 30 seconds
+        val wl: PowerManager.WakeLock? = try {
+            @Suppress("DEPRECATION")
+            pm.newWakeLock(
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "hatzolah:dispatch"
+            ).apply { acquire(30_000L) }
+        } catch (_: Throwable) { null }
 
-        // 2. Build the alert intent
-        val alertIntent = DispatchAlertActivity.createIntent(context, address, callType, rawMessage, units, age)
-        val alertPendingIntent = PendingIntent.getActivity(
-            context, System.currentTimeMillis().toInt(), alertIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val navigationUri = "google.navigation:q=${smsParser.formatForNavigation(address)}"
-        val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri)).apply {
-            setPackage("com.google.android.apps.maps")
-        }
-        val mapPendingIntent = PendingIntent.getActivity(
-            context, 0, mapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // 3. Post the notification with full-screen intent (this shows on lock screen)
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        val title = if (callType.isNotBlank()) "DISPATCH: ${callType.uppercase()}" else "DISPATCH CALL"
-
-        val notification = NotificationCompat.Builder(context, HatzolahApp.DISPATCH_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(title)
-            .setContentText(address)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$address\n$callType\n$rawMessage"))
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setAutoCancel(false)
-            .setOngoing(true)
-            .setFullScreenIntent(alertPendingIntent, true)
-            .setContentIntent(alertPendingIntent)
-            .addAction(android.R.drawable.ic_menu_directions, "NAVIGATE", mapPendingIntent)
-            .addAction(android.R.drawable.ic_menu_view, "OPEN ALERT", alertPendingIntent)
-            .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800))
-            .build()
-
-        notificationManager.notify(DISPATCH_NOTIFICATION_ID, notification)
-
-        // 4. Play alert sound LOUD - even on vibrate/silent mode
         try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+            val alertIntent = DispatchAlertActivity.createIntent(
+                context, address, callType, rawMessage, units, age
+            )
+            val alertPendingIntent = PendingIntent.getActivity(
+                context, alertRequestCode, alertIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val navigationUri = "google.navigation:q=${smsParser.formatForNavigation(address)}"
+            val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(navigationUri))
+            val mapPendingIntent = PendingIntent.getActivity(
+                context, mapRequestCode, mapIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            val title = if (callType.isNotBlank()) "DISPATCH: ${callType.uppercase()}" else "DISPATCH CALL"
+
+            val notification = NotificationCompat.Builder(context, HatzolahApp.DISPATCH_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_alert)
+                .setContentTitle(title)
+                .setContentText(address)
+                .setStyle(NotificationCompat.BigTextStyle().bigText("$address\n$callType\n$rawMessage"))
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(false)
+                .setOngoing(true)
+                .setFullScreenIntent(alertPendingIntent, true)
+                .setContentIntent(alertPendingIntent)
+                .addAction(android.R.drawable.ic_menu_directions, "NAVIGATE", mapPendingIntent)
+                .addAction(android.R.drawable.ic_menu_view, "OPEN ALERT", alertPendingIntent)
+                .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800))
+                .build()
+
+            notificationManager.notify(DISPATCH_NOTIFICATION_ID, notification)
+
+            // Play alert sound with proper resource management - Bugs #2, #46
+            playAlertSound(context)
+
+            // Try direct launch - won't crash if blocked - Bug #13
+            try {
+                context.startActivity(alertIntent)
+            } catch (_: Throwable) { /* background launch blocked; notification handles it */ }
+        } finally {
+            try { wl?.release() } catch (_: Throwable) { /* already released */ }
+        }
+    }
+
+    private fun playAlertSound(context: Context) {
+        var mp: MediaPlayer? = null
+        var audioManager: AudioManager? = null
+        var originalVolume = -1
+        try {
+            audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
             val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
 
-            val mp = MediaPlayer()
+            mp = MediaPlayer()
             mp.setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
-            val afd = context.resources.openRawResourceFd(R.raw.dispatch_alert)
-            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
+            val afd = context.resources.openRawResourceFd(R.raw.dispatch_alert) ?: return
+            try {
+                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            } finally {
+                try { afd.close() } catch (_: Throwable) {}
+            }
             mp.prepare()
+            val finalAudioManager = audioManager
+            val finalOriginalVolume = originalVolume
             mp.setOnCompletionListener { player ->
-                player.release()
-                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+                try { player.release() } catch (_: Throwable) {}
+                try {
+                    if (finalOriginalVolume >= 0) {
+                        finalAudioManager.setStreamVolume(
+                            AudioManager.STREAM_ALARM, finalOriginalVolume, 0
+                        )
+                    }
+                } catch (_: Throwable) {}
+            }
+            mp.setOnErrorListener { player, _, _ ->
+                try { player.release() } catch (_: Throwable) {}
+                true
             }
             mp.start()
-        } catch (_: Exception) {}
-
-        // 5. Also try direct activity launch (works when phone is unlocked)
-        try {
-            context.startActivity(alertIntent)
-        } catch (_: Exception) {
-            // Blocked from background - the full-screen intent handles lock screen
+        } catch (_: Throwable) {
+            // Clean up on failure
+            try { mp?.release() } catch (_: Throwable) {}
+            try {
+                if (originalVolume >= 0 && audioManager != null) {
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+                }
+            } catch (_: Throwable) {}
         }
-
-        // Release wake lock after a delay
-        try { wl.release() } catch (_: Exception) {}
     }
 }

@@ -33,7 +33,13 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* continue regardless */ }
+    ) { results ->
+        // Log denied permissions for troubleshooting
+        val denied = results.filter { !it.value }.keys
+        if (denied.isNotEmpty()) {
+            android.util.Log.w("Hatzolah", "Denied permissions: $denied")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

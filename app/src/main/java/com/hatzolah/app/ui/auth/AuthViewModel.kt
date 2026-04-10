@@ -56,8 +56,11 @@ class AuthViewModel @Inject constructor(
                         _uiState.update { it.copy(isAuthenticated = true) }
                     }
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isFirstTimeSetup = true) }
+            } catch (e: Throwable) {
+                // Don't flip to first-time setup on a transient DB error - show error instead
+                _uiState.update {
+                    it.copy(error = "Unable to load members. Please restart the app.")
+                }
             }
         }
     }

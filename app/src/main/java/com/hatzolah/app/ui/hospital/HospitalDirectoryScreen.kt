@@ -57,7 +57,19 @@ fun HospitalDirectoryScreen(
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.clickable {
                                 val uri = "geo:${hospital.latitude},${hospital.longitude}?q=${Uri.encode(hospital.address)}"
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                                try {
+                                    context.startActivity(intent)
+                                } catch (_: Throwable) {
+                                    try {
+                                        context.startActivity(
+                                            Intent(
+                                                Intent.ACTION_VIEW,
+                                                Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(hospital.address)}")
+                                            )
+                                        )
+                                    } catch (_: Throwable) {}
+                                }
                             }
                         )
 
@@ -83,8 +95,11 @@ fun HospitalDirectoryScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.clickable {
-                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${hospital.mainHotline}"))
-                                        context.startActivity(intent)
+                                        try {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_DIAL, Uri.parse("tel:${hospital.mainHotline}"))
+                                            )
+                                        } catch (_: Throwable) {}
                                     }
                                 )
                             }
@@ -97,8 +112,11 @@ fun HospitalDirectoryScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.clickable {
-                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${hospital.obHotline}"))
-                                        context.startActivity(intent)
+                                        try {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_DIAL, Uri.parse("tel:${hospital.obHotline}"))
+                                            )
+                                        } catch (_: Throwable) {}
                                     }
                                 )
                             }

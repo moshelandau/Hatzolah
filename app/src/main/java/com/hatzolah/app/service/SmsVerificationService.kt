@@ -1,8 +1,13 @@
 package com.hatzolah.app.service
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.telephony.SmsManager
+import androidx.core.content.ContextCompat
 import com.hatzolah.app.data.repository.MemberRepository
 import com.hatzolah.app.util.PreferencesManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
@@ -13,6 +18,7 @@ import kotlin.random.Random
  */
 @Singleton
 class SmsVerificationService @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val memberRepository: MemberRepository,
     private val preferencesManager: PreferencesManager
 ) {
@@ -33,15 +39,23 @@ class SmsVerificationService @Inject constructor(
         val code = generateCode()
         preferencesManager.setVerificationCode(code)
 
-        try {
-            val smsManager = SmsManager.getDefault()
-            smsManager.sendTextMessage(
-                phoneNumber, null,
-                "Your Hatzolah verification code is: $code",
-                null, null
-            )
-        } catch (_: Exception) {
-            // SMS sending may fail in emulator; code is stored for verification
+        // Only try to send SMS if permission granted - otherwise just store code for display
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.SEND_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            try {
+                @Suppress("DEPRECATION")
+                val smsManager = SmsManager.getDefault()
+                smsManager.sendTextMessage(
+                    phoneNumber, null,
+                    "Your Hatzolah verification code is: $code",
+                    null, null
+                )
+            } catch (_: Throwable) {
+                // SMS sending failed - code is still stored for on-screen verification
+            }
         }
 
         return code

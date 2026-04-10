@@ -98,16 +98,25 @@ class DispatchAlertActivity : ComponentActivity() {
     }
 
     private fun navigateToAddress(address: String) {
-        val uri = "google.navigation:q=${address.trim().replace(" ", "+")}"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-            setPackage("com.google.android.apps.maps")
+        if (address.isBlank()) return
+        val encoded = address.trim().replace(" ", "+")
+        val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$encoded"))
+            .apply { setPackage("com.google.android.apps.maps") }
+        val geoIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded"))
+        val webIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encode(address)}")
+        )
+
+        val intent = when {
+            mapsIntent.resolveActivity(packageManager) != null -> mapsIntent
+            geoIntent.resolveActivity(packageManager) != null -> geoIntent
+            else -> webIntent
         }
         try {
             startActivity(intent)
-        } catch (_: Exception) {
-            // Fallback to browser
-            val webUri = "https://www.google.com/maps/search/${Uri.encode(address)}"
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(webUri)))
+        } catch (_: Throwable) {
+            try { startActivity(webIntent) } catch (_: Throwable) {}
         }
     }
 

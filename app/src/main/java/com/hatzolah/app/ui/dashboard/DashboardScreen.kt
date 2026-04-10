@@ -59,11 +59,30 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val uri = "google.navigation:q=${uiState.recentCallAddress.replace(" ", "+")}"
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-                                setPackage("com.google.android.apps.maps")
+                            val addressEncoded = uiState.recentCallAddress.replace(" ", "+")
+                            // Try Google Maps nav intent first, then generic geo, then web fallback
+                            val primary = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("google.navigation:q=$addressEncoded")
+                            ).apply { setPackage("com.google.android.apps.maps") }
+                            val geoFallback = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("geo:0,0?q=$addressEncoded")
+                            )
+                            val webFallback = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$addressEncoded")
+                            )
+                            val intent = when {
+                                primary.resolveActivity(context.packageManager) != null -> primary
+                                geoFallback.resolveActivity(context.packageManager) != null -> geoFallback
+                                else -> webFallback
                             }
-                            context.startActivity(intent)
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Throwable) {
+                                try { context.startActivity(webFallback) } catch (_: Throwable) {}
+                            }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

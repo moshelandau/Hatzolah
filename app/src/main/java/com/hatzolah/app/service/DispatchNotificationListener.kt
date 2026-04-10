@@ -1,23 +1,24 @@
 package com.hatzolah.app.service
 
 import android.app.Notification
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.hatzolah.app.util.DispatchNotificationHelper
 import com.hatzolah.app.util.PreferencesManager
-import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Listens for incoming SMS notifications and triggers dispatch processing
  * when a message arrives from the configured dispatch number.
  */
 class DispatchNotificationListener : NotificationListenerService() {
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -35,36 +36,40 @@ class DispatchNotificationListener : NotificationListenerService() {
             EntryPointAccessors.fromApplication(
                 applicationContext, ListenerEntryPoint::class.java
             )
-        } catch (_: Exception) { return }
+        } catch (_: Throwable) { return }
 
         val preferencesManager = entryPoint.preferencesManager()
         val dispatchNumber = preferencesManager.getDispatchNumber()
         if (dispatchNumber.isBlank()) return
 
         val extras = sbn.notification.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: text
-        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString() ?: ""
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
+        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
 
-        // Combine all notification text for matching
         val allText = "$title $text $bigText $subText"
         val normalizedDispatch = normalizePhone(dispatchNumber)
+        if (normalizedDispatch.length < 7) return // avoid false positives on short strings
 
-        // Check if ANY part of the notification contains the dispatch number
         val isDispatch = normalizePhone(title) == normalizedDispatch ||
                 normalizePhone(allText).contains(normalizedDispatch) ||
                 allText.contains(dispatchNumber.takeLast(4)) ||
                 allText.contains(dispatchNumber.takeLast(7))
 
-        if (isDispatch) {
-            val smsParser = entryPoint.smsParser()
-            val notificationHelper = entryPoint.notificationHelper()
+        if (!isDispatch) return
 
-            val messageBody = bigText.ifBlank { text }
-            val parsed = smsParser.parseDispatchMessage(messageBody) ?: return
+        val smsParser = entryPoint.smsParser()
+        val notificationHelper = entryPoint.notificationHelper()
 
-            CoroutineScope(Dispatchers.Main).launch {
+        val messageBody = bigText.ifBlank { text }
+        val parsed = smsParser.parseDispatchMessage(messageBody) ?: return
+
+        // Use a Handler to post to main thread instead of creating a new CoroutineScope.
+        // NotificationListenerService lives as long as the system wants - creating
+        // scopes per-notification leaks memory.
+        mainHandler.post {
+            try {
                 notificationHelper.showDispatchNotification(
                     context = applicationContext,
                     address = parsed.address,
@@ -73,8 +78,13 @@ class DispatchNotificationListener : NotificationListenerService() {
                     units = parsed.units,
                     age = parsed.age
                 )
-            }
+            } catch (_: Throwable) { /* don't crash the listener */ }
         }
+    }
+
+    override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     private fun isSmsApp(packageName: String): Boolean {
@@ -82,11 +92,9 @@ class DispatchNotificationListener : NotificationListenerService() {
                 packageName.contains("sms") ||
                 packageName.contains("mms") ||
                 packageName.contains("message") ||
-                packageName.contains("chat") ||
                 packageName == "com.samsung.android.messaging" ||
                 packageName == "com.google.android.apps.messaging" ||
-                packageName == "com.android.mms" ||
-                packageName == "com.samsung.android.vvm"
+                packageName == "com.android.mms"
     }
 
     private fun normalizePhone(phone: String): String {
