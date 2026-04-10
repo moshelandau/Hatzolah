@@ -41,12 +41,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var hasShownDispatch = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestRequiredPermissions()
 
-        // If there's an active dispatch, show the alert immediately (e.g. after unfold/unlock)
-        showActiveDispatchIfAny()
+        // Show active dispatch only once on fresh app launch
+        if (!hasShownDispatch) {
+            showActiveDispatchIfAny()
+            hasShownDispatch = true
+        }
 
         setContent {
             HatzolahTheme {
@@ -74,12 +79,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // When user comes back to the app (e.g. unfolds phone), check for active dispatch
-        showActiveDispatchIfAny()
     }
 
     private fun showActiveDispatchIfAny() {
