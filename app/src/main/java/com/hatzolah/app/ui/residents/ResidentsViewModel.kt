@@ -40,7 +40,11 @@ class ResidentsViewModel @Inject constructor(
     private val _count = MutableStateFlow(0)
 
     init {
-        viewModelScope.launch { _count.value = repository.count() }
+        viewModelScope.launch { refreshCount() }
+    }
+
+    private suspend fun refreshCount() {
+        _count.value = repository.count()
     }
 
     // Debounce search by 250ms so typing fast doesn't hammer the DB
@@ -93,8 +97,12 @@ class ResidentsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val added = repository.importFromCsv(csv)
-                _count.value = repository.count()
-                _importMessage.value = "Imported $added residents"
+                refreshCount()
+                if (added < 0) {
+                    _importMessage.value = "No valid residents found in CSV data"
+                } else {
+                    _importMessage.value = "Imported $added residents"
+                }
             } catch (e: Throwable) {
                 _importMessage.value = "Import failed: ${e.message}"
             }
@@ -108,7 +116,7 @@ class ResidentsViewModel @Inject constructor(
     fun deleteAll() {
         viewModelScope.launch {
             repository.deleteAll()
-            _count.value = 0
+            refreshCount()
         }
     }
 }

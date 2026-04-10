@@ -42,11 +42,24 @@ class DispatchNotificationListener : NotificationListenerService() {
         val dispatchNumber = preferencesManager.getDispatchNumber()
         if (dispatchNumber.isBlank()) return
 
-        val extras = sbn.notification.extras ?: return
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
-        val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
-        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
+        val extras = sbn.notification.extras
+        val title: String
+        val text: String
+        val bigText: String
+        val subText: String
+        if (extras != null) {
+            title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
+            text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
+            bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
+            subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
+        } else {
+            val ticker = sbn.notification.tickerText?.toString().orEmpty()
+            if (ticker.isBlank()) return
+            title = ""
+            text = ticker
+            bigText = ticker
+            subText = ""
+        }
 
         val allText = "$title $text $bigText $subText"
         val normalizedDispatch = normalizePhone(dispatchNumber)
@@ -99,6 +112,10 @@ class DispatchNotificationListener : NotificationListenerService() {
     }
 
     private fun normalizePhone(phone: String): String {
-        return phone.replace(Regex("[^0-9]"), "").takeLast(10)
+        var digits = phone.replace(Regex("[^0-9]"), "")
+        if (digits.length == 11 && digits.startsWith("1")) {
+            digits = digits.substring(1)
+        }
+        return digits.takeLast(10)
     }
 }

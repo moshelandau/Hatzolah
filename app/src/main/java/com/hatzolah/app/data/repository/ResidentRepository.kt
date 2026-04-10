@@ -62,9 +62,10 @@ class ResidentRepository @Inject constructor(
                 )
             }
             .toList()
-        if (residents.isNotEmpty()) {
-            residentDao.insertAll(residents)
+        if (residents.isEmpty()) {
+            return -1
         }
+        residentDao.insertAll(residents)
         return residents.size
     }
 }

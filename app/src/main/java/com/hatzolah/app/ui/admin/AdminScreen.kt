@@ -400,6 +400,8 @@ fun AddHospitalDialog(
                         value = latitude,
                         onValueChange = { latitude = it },
                         label = { Text("Latitude") },
+                        placeholder = { Text("e.g. 41.1234") },
+                        supportingText = { Text("-90 to 90") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -408,6 +410,8 @@ fun AddHospitalDialog(
                         value = longitude,
                         onValueChange = { longitude = it },
                         label = { Text("Longitude") },
+                        placeholder = { Text("e.g. -74.0060") },
+                        supportingText = { Text("-180 to 180") },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -451,10 +455,14 @@ fun AddHospitalDialog(
         confirmButton = {
             Button(
                 onClick = {
+                    val parsedLat = latitude.toDoubleOrNull() ?: 0.0
+                    val parsedLng = longitude.toDoubleOrNull() ?: 0.0
+                    // Clamp to valid range; out-of-range values reset to 0.0
+                    val validLat = if (parsedLat in -90.0..90.0) parsedLat else 0.0
+                    val validLng = if (parsedLng in -180.0..180.0) parsedLng else 0.0
                     onAdd(
                         name, address, erLocation, accessCodes, kosherRoom, patientAssistance,
-                        latitude.toDoubleOrNull() ?: 0.0,
-                        longitude.toDoubleOrNull() ?: 0.0,
+                        validLat, validLng,
                         mainHotline, obHotline, deptHotlines, commSystem, beds
                     )
                 },

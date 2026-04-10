@@ -131,6 +131,17 @@ fun ResidentsScreen(
                         onCall = { callNumber(context, resident.phoneNumber) }
                     )
                 }
+                if (uiState.residents.size >= 200) {
+                    item {
+                        Text(
+                            text = "Showing first 200 results. Refine your search.",
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
@@ -260,6 +271,7 @@ private fun ResidentDetailDialog(
                 val heName = listOf(r.firstNameHe, r.lastNameHe).filter { it.isNotBlank() }.joinToString(" ")
                 if (enName.isNotBlank()) Text(enName, fontWeight = FontWeight.Bold)
                 if (heName.isNotBlank()) Text(heName, fontSize = 18.sp)
+                if (enName.isBlank() && heName.isBlank()) Text("Unknown Resident", fontWeight = FontWeight.Bold)
             }
         },
         text = {

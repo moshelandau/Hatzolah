@@ -57,7 +57,6 @@ class DispatchAlertActivity : ComponentActivity() {
                 putExtra(EXTRA_ROOM, room)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         }
     }
@@ -80,6 +79,8 @@ class DispatchAlertActivity : ComponentActivity() {
             )
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        if (intent == null) { finish(); return }
 
         val address = intent.getStringExtra(EXTRA_ADDRESS) ?: ""
         val callType = intent.getStringExtra(EXTRA_CALL_TYPE) ?: ""
@@ -164,9 +165,11 @@ class DispatchAlertActivity : ComponentActivity() {
     }
 
     private fun extractUnitNumber(address: String): String {
-        // Match common unit/apt patterns: "Apt 3", "Unit 5B", "#12", "Apt. 4"
+        // Match common unit/apt patterns: "Apt 3", "Unit 5B", "#12", "#011", "Room X"
+        // Order matters: check Room and # before Floor to avoid false matches
         val patterns = listOf(
-            Regex("(?i)(apt\\.?|unit|suite|ste\\.?|#)\\s*([A-Za-z0-9-]+)"),
+            Regex("(?i)(apt\\.?|unit|suite|ste\\.?|room|rm\\.?)\\s*([A-Za-z0-9-]+)"),
+            Regex("#\\s*([A-Za-z0-9-]+)"),
             Regex("(?i)\\bfl(?:oor)?\\s*(\\d+)"),
         )
         for (pattern in patterns) {

@@ -52,7 +52,10 @@ class HospitalDirectoryViewModel @Inject constructor(
             }
             hospitalsFlow.map { hospitals ->
                 val withDistance = hospitals.map { h ->
-                    val dist = if (loc.first != 0.0 && loc.second != 0.0 && h.latitude != 0.0 && h.longitude != 0.0) {
+                    val dist = if (loc.first != 0.0 && loc.second != 0.0
+                        && h.latitude != 0.0 && h.longitude != 0.0
+                        && h.latitude in -90.0..90.0 && h.longitude in -180.0..180.0
+                    ) {
                         val results = FloatArray(1)
                         Location.distanceBetween(loc.first, loc.second, h.latitude, h.longitude, results)
                         (results[0] / 1609.344) // meters to miles

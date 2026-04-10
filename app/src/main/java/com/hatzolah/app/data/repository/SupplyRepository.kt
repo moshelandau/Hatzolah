@@ -36,7 +36,7 @@ class SupplyRepository @Inject constructor(
                 // Try to extract quantity from patterns like "2x gauze", "2 IV kits", "x2 mask"
                 val qtyMatch = Regex("^(?:(\\d+)\\s*x?|x\\s*(\\d+))\\s+(.+)", RegexOption.IGNORE_CASE).find(line)
                 if (qtyMatch != null) {
-                    val qty = (qtyMatch.groupValues[1].ifBlank { qtyMatch.groupValues[2] }).toIntOrNull() ?: 1
+                    val qty = ((qtyMatch.groupValues[1].ifBlank { qtyMatch.groupValues[2] }).toIntOrNull() ?: 1).coerceAtLeast(1)
                     val name = qtyMatch.groupValues[3].trim()
                     SupplyRequest(
                         itemName = name,

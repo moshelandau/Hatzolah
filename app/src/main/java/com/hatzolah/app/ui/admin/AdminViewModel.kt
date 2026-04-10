@@ -8,6 +8,7 @@ import com.hatzolah.app.data.repository.HospitalRepository
 import com.hatzolah.app.data.repository.MemberRepository
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.util.Log
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -37,13 +38,21 @@ class AdminViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            memberRepository.getAllMembers().collect { members ->
-                _uiState.update { it.copy(members = members) }
+            try {
+                memberRepository.getAllMembers().collect { members ->
+                    _uiState.update { it.copy(members = members) }
+                }
+            } catch (e: Exception) {
+                Log.e("AdminViewModel", "Error collecting members from database", e)
             }
         }
         viewModelScope.launch {
-            hospitalRepository.getAllHospitals().collect { hospitals ->
-                _uiState.update { it.copy(hospitals = hospitals) }
+            try {
+                hospitalRepository.getAllHospitals().collect { hospitals ->
+                    _uiState.update { it.copy(hospitals = hospitals) }
+                }
+            } catch (e: Exception) {
+                Log.e("AdminViewModel", "Error collecting hospitals from database", e)
             }
         }
     }
@@ -99,6 +108,12 @@ class AdminViewModel @Inject constructor(
         communicationSystem: String,
         bedAvailability: String
     ) {
+        // Validate lat/lng ranges; reset to 0.0 if out of bounds
+        val validLat = if (latitude in -90.0..90.0) latitude else 0.0
+        val validLng = if (longitude in -180.0..180.0) longitude else 0.0
+
+        // Intentionally allowing duplicate hospital names: a hospital may have multiple
+        // entries for different ERs, campuses, or departments at the same facility.
         viewModelScope.launch {
             hospitalRepository.addHospital(
                 Hospital(
@@ -108,8 +123,8 @@ class AdminViewModel @Inject constructor(
                     accessCodes = accessCodes,
                     kosherRoomLocation = kosherRoom,
                     patientAssistanceNotes = patientAssistance,
-                    latitude = latitude,
-                    longitude = longitude,
+                    latitude = validLat,
+                    longitude = validLng,
                     mainHotline = mainHotline,
                     obHotline = obHotline,
                     departmentHotlines = departmentHotlines,

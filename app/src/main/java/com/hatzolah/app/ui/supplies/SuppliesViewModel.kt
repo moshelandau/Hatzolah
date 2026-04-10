@@ -49,6 +49,9 @@ class SuppliesViewModel @Inject constructor(
 
     fun addItem(name: String, quantity: Int, callLogId: Long? = null) {
         if (name.isBlank()) return
+        // If callLogId is non-null, it may reference a call log that gets deleted later.
+        // Orphaned references are acceptable -- the supply request remains valid on its own
+        // and Room does not enforce a foreign key constraint here.
         viewModelScope.launch {
             repository.add(
                 SupplyRequest(

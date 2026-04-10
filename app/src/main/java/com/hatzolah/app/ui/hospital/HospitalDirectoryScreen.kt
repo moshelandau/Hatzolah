@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -47,6 +48,8 @@ fun HospitalDirectoryScreen(
                 client.lastLocation.addOnSuccessListener { loc ->
                     if (loc != null) viewModel.updateLocation(loc.latitude, loc.longitude)
                 }
+            } catch (_: SecurityException) {
+                // Permission was revoked between the check and the call
             } catch (_: Throwable) {}
         }
     }
@@ -126,7 +129,9 @@ fun HospitalDirectoryScreen(
                         } catch (_: Throwable) {
                             try {
                                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded")))
-                            } catch (_: Throwable) {}
+                            } catch (_: Throwable) {
+                                Toast.makeText(context, "Could not open maps", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 )
@@ -340,7 +345,9 @@ private fun HospitalCard(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
                             // Try to extract first phone number
-                            val phone = Regex("\\d[\\d-]{6,}").find(h.departmentHotlines)?.value
+                            // Require at least 7 consecutive digits (ignoring dashes/spaces) to avoid matching short codes
+                            val phone = Regex("\\d[\\d\\s-]{6,}\\d").find(h.departmentHotlines)?.value
+                                ?.takeIf { it.count { c -> c.isDigit() } >= 7 }
                             if (phone != null) onCall(phone)
                         }
                     )

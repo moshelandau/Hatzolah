@@ -20,6 +20,8 @@ data class SupplyRequest(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
+    // itemName is a non-null Kotlin String -- Room enforces NOT NULL in the schema.
+    // No @NonNull annotation needed; Kotlin's type system guarantees non-nullability.
     val itemName: String,
     val quantity: Int = 1,
 

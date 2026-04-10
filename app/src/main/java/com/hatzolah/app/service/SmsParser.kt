@@ -71,7 +71,7 @@ class SmsParser @Inject constructor() {
                 address = lines.drop(1).joinToString(", ")
             } else if (lines.size == 1) {
                 // Single line: try to find where address starts (after header pattern)
-                val headerMatch = Regex("^[A-Z]{2,}\\s+EMS\\s+\\S+\\s+\\S+\\s+").find(lines[0])
+                val headerMatch = Regex("^[A-Z0-9]{2,}\\s+EMS\\s+\\S+\\s+\\S+\\s+").find(lines[0])
                 if (headerMatch != null) {
                     address = lines[0].substring(headerMatch.range.last + 1).trim()
                 } else {
@@ -86,11 +86,11 @@ class SmsParser @Inject constructor() {
 
         // Fallback: find any street address pattern in the message
         if (address.isBlank()) {
-            Regex("(\\d+\\s+[A-Za-z][A-Za-z .']+(?:,\\s*[A-Za-z ]+)?\\s*\\d{5})")
+            Regex("(\\d+\\s+[A-Za-z][A-Za-z .']+(?:,\\s*[A-Za-z ]+)?\\s*\\d{5})", RegexOption.IGNORE_CASE)
                 .find(withoutUrl)?.let { address = it.groupValues[1] }
         }
         if (address.isBlank()) {
-            Regex("(\\d+\\s+[A-Za-z][A-Za-z .,'#]+(?:Rd|Road|St|Street|Ave|Avenue|Dr|Drive|Blvd|Ln|Lane|Mall|Way|Ct|Pl)[A-Za-z0-9,. #]*)", RegexOption.IGNORE_CASE)
+            Regex("(\\d+\\s+[A-Za-z][A-Za-z .,'#]{1,60}(?:Rd|Road|St|Street|Ave|Avenue|Dr|Drive|Blvd|Ln|Lane|Mall|Way|Ct|Pl)[A-Za-z0-9,. #]{0,30})", RegexOption.IGNORE_CASE)
                 .find(withoutUrl)?.let { address = it.groupValues[1] }
         }
 

@@ -31,7 +31,10 @@ class PreferencesManager @Inject constructor(
     }
 
     fun getDispatchNumber(): String = prefs.getString(KEY_DISPATCH_NUMBER, "") ?: ""
-    fun setDispatchNumber(number: String) = prefs.edit().putString(KEY_DISPATCH_NUMBER, number).apply()
+    fun setDispatchNumber(number: String) {
+        val sanitized = number.replace(Regex("[^+\\d]"), "")
+        prefs.edit().putString(KEY_DISPATCH_NUMBER, sanitized).apply()
+    }
 
     fun getLoggedInMemberId(): Long = prefs.getLong(KEY_LOGGED_IN_MEMBER_ID, -1)
     fun setLoggedInMemberId(id: Long) = prefs.edit().putLong(KEY_LOGGED_IN_MEMBER_ID, id).apply()
@@ -47,15 +50,17 @@ class PreferencesManager @Inject constructor(
 
     // Active dispatch state - auto-expires after 30 minutes
     fun setActiveDispatch(address: String, callType: String, rawMessage: String, units: String, age: String) {
-        prefs.edit()
-            .putBoolean(KEY_ACTIVE_DISPATCH, true)
-            .putString(KEY_DISPATCH_ADDRESS, address)
-            .putString(KEY_DISPATCH_CALL_TYPE, callType)
-            .putString(KEY_DISPATCH_RAW, rawMessage)
-            .putString(KEY_DISPATCH_UNITS, units)
-            .putString(KEY_DISPATCH_AGE, age)
-            .putLong(KEY_DISPATCH_TIMESTAMP, System.currentTimeMillis())
-            .apply()
+        synchronized(prefs) {
+            prefs.edit()
+                .putBoolean(KEY_ACTIVE_DISPATCH, true)
+                .putString(KEY_DISPATCH_ADDRESS, address)
+                .putString(KEY_DISPATCH_CALL_TYPE, callType)
+                .putString(KEY_DISPATCH_RAW, rawMessage)
+                .putString(KEY_DISPATCH_UNITS, units)
+                .putString(KEY_DISPATCH_AGE, age)
+                .putLong(KEY_DISPATCH_TIMESTAMP, System.currentTimeMillis())
+                .apply()
+        }
     }
 
     fun hasActiveDispatch(): Boolean {
