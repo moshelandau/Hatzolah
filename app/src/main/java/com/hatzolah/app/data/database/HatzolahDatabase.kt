@@ -21,7 +21,7 @@ import com.hatzolah.app.data.database.entity.SupplyRequest
         Resident::class,
         SupplyRequest::class
     ],
-    version = 3,
+    version = 1,
     exportSchema = false
 )
 abstract class HatzolahDatabase : RoomDatabase() {
