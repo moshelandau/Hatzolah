@@ -122,13 +122,27 @@ class DispatchAlertActivity : ComponentActivity() {
 
     private fun navigateToAddress(address: String) {
         if (address.isBlank()) return
-        val encoded = address.trim().replace(" ", "+")
-        val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$encoded"))
-            .apply { setPackage("com.google.android.apps.maps") }
-        val geoIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$encoded"))
+        // URL-encode the address properly. Spaces become %20, # becomes %23, , becomes %2C etc.
+        // Using "+" for spaces and not encoding # breaks the URL (# is a fragment separator).
+        val cleanAddress = address.trim()
+        val encoded = Uri.encode(cleanAddress)
+
+        // google.navigation scheme launches turn-by-turn navigation in Google Maps
+        val mapsIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("google.navigation:q=$encoded&mode=d")
+        ).apply { setPackage("com.google.android.apps.maps") }
+
+        // geo: scheme opens the pin on the map (used as fallback)
+        val geoIntent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("geo:0,0?q=$encoded")
+        )
+
+        // Web fallback - Google Maps directions URL
         val webIntent = Intent(
             Intent.ACTION_VIEW,
-            Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encode(address)}")
+            Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$encoded&travelmode=driving")
         )
 
         val intent = when {

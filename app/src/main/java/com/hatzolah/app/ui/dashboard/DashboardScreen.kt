@@ -59,11 +59,11 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val addressEncoded = uiState.recentCallAddress.replace(" ", "+")
+                            val addressEncoded = Uri.encode(uiState.recentCallAddress.trim())
                             // Try Google Maps nav intent first, then generic geo, then web fallback
                             val primary = Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("google.navigation:q=$addressEncoded")
+                                Uri.parse("google.navigation:q=$addressEncoded&mode=d")
                             ).apply { setPackage("com.google.android.apps.maps") }
                             val geoFallback = Intent(
                                 Intent.ACTION_VIEW,
@@ -71,7 +71,7 @@ fun DashboardScreen(
                             )
                             val webFallback = Intent(
                                 Intent.ACTION_VIEW,
-                                Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$addressEncoded")
+                                Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$addressEncoded&travelmode=driving")
                             )
                             val intent = when {
                                 primary.resolveActivity(context.packageManager) != null -> primary

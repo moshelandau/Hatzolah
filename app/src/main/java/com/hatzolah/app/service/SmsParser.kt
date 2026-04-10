@@ -109,8 +109,13 @@ class SmsParser @Inject constructor() {
         )
     }
 
+    /**
+     * URL-encodes an address for use in google.navigation: or geo: URIs.
+     * Proper encoding is required because addresses may contain # (apt numbers),
+     * commas, and other special characters that would otherwise break the URL.
+     */
     fun formatForNavigation(address: String): String {
-        return address.trim().replace("\\s+".toRegex(), "+")
+        return android.net.Uri.encode(address.trim())
     }
 
     private fun cleanAddress(raw: String): String {
