@@ -16,7 +16,8 @@ data class CallDocumentationUiState(
     val patientDob: String = "",
     val medicalNotes: String = "",
     val isLoading: Boolean = false,
-    val saved: Boolean = false
+    val saved: Boolean = false,
+    val error: String? = null
 )
 
 @HiltViewModel
@@ -32,14 +33,18 @@ class CallDocumentationViewModel @Inject constructor(
     fun loadCallLog(id: Long) {
         callLogId = id
         viewModelScope.launch {
-            callLogRepository.getCallLogById(id)?.let { call ->
-                _uiState.update {
-                    it.copy(
-                        patientName = call.patientName,
-                        patientDob = call.patientDob,
-                        medicalNotes = call.medicalNotes
-                    )
-                }
+            try {
+                callLogRepository.getCallLogById(id)?.let { call ->
+                    _uiState.update {
+                        it.copy(
+                            patientName = call.patientName,
+                            patientDob = call.patientDob,
+                            medicalNotes = call.medicalNotes
+                        )
+                    }
+                } ?: _uiState.update { it.copy(error = "Call not found") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Failed to load call: ${e.message}") }
             }
         }
     }
@@ -50,18 +55,25 @@ class CallDocumentationViewModel @Inject constructor(
 
     fun saveDocumentation() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            callLogRepository.getCallLogById(callLogId)?.let { call ->
-                callLogRepository.updateCallLog(
-                    call.copy(
-                        patientName = _uiState.value.patientName,
-                        patientDob = _uiState.value.patientDob,
-                        medicalNotes = _uiState.value.medicalNotes,
-                        isDocumented = true
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            try {
+                val call = callLogRepository.getCallLogById(callLogId)
+                if (call != null) {
+                    callLogRepository.updateCallLog(
+                        call.copy(
+                            patientName = _uiState.value.patientName,
+                            patientDob = _uiState.value.patientDob,
+                            medicalNotes = _uiState.value.medicalNotes,
+                            isDocumented = true
+                        )
                     )
-                )
+                    _uiState.update { it.copy(isLoading = false, saved = true) }
+                } else {
+                    _uiState.update { it.copy(isLoading = false, error = "Call not found. Unable to save.") }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = "Failed to save: ${e.message}") }
             }
-            _uiState.update { it.copy(isLoading = false, saved = true) }
         }
     }
 }

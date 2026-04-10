@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
                 var isLoggedIn by remember { mutableStateOf(preferencesManager.isLoggedIn()) }
 
                 if (isLoggedIn) {
-                    AppNavigation()
+                    AppNavigation(onLogout = { isLoggedIn = false })
                 } else {
                     AuthScreen(
                         onAuthSuccess = { isLoggedIn = true }

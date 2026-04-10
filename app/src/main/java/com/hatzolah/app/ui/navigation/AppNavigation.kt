@@ -56,7 +56,7 @@ val drawerItems = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppNavigation() {
+fun AppNavigation(onLogout: () -> Unit = {}) {
     val navController = rememberNavController()
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
@@ -133,7 +133,7 @@ fun AppNavigation() {
                 )
             }
             composable(Screen.Protocols.route) { ProtocolsScreen() }
-            composable(Screen.Admin.route) { AdminScreen() }
+            composable(Screen.Admin.route) { AdminScreen(onLogout = onLogout) }
             composable(
                 route = "document/{callId}",
                 arguments = listOf(navArgument("callId") { type = NavType.LongType })

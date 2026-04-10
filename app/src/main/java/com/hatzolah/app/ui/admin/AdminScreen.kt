@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
+    onLogout: () -> Unit = {},
     viewModel: AdminViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -49,7 +50,10 @@ fun AdminScreen(
         }
 
         when (uiState.activeTab) {
-            0 -> SettingsTab(uiState, viewModel)
+            0 -> SettingsTab(uiState, viewModel, onLogout = {
+                viewModel.logout()
+                onLogout()
+            })
             1 -> MembersTab(uiState, viewModel, onAddClick = { showAddMemberDialog = true })
             2 -> HospitalsTab(uiState, viewModel, onAddClick = { showAddHospitalDialog = true })
         }
@@ -81,7 +85,7 @@ fun AdminScreen(
 }
 
 @Composable
-private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
+private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel, onLogout: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -134,6 +138,20 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 Text("Registered Members: ${uiState.members.size}")
                 Text("Hospitals in Directory: ${uiState.hospitals.size}")
             }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Icon(Icons.Default.Logout, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Log Out")
         }
     }
 }

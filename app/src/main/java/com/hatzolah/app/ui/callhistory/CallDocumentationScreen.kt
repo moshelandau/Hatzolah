@@ -83,6 +83,14 @@ fun CallDocumentationScreen(
                 Text("Save Documentation")
             }
 
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
             Text(
                 text = "Patient data is private and only visible to you.",
                 style = MaterialTheme.typography.bodySmall,

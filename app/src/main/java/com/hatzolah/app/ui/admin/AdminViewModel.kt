@@ -125,4 +125,8 @@ class AdminViewModel @Inject constructor(
             hospitalRepository.deleteHospital(hospital)
         }
     }
+
+    fun logout() {
+        preferencesManager.clearSession()
+    }
 }
