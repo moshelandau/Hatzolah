@@ -6,7 +6,11 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -69,11 +73,14 @@ fun AppNavigation() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
                 bottomNavItems.forEach { screen ->
                     NavigationBarItem(
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
-                        label = { Text(screen.title) },
+                        label = { Text(screen.title, fontSize = 11.sp) },
                         selected = currentRoute == screen.route,
                         onClick = {
                             if (currentRoute != screen.route) {
@@ -83,7 +90,12 @@ fun AppNavigation() {
                                     restoreState = true
                                 }
                             }
-                        }
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                        )
                     )
                 }
             }
@@ -91,23 +103,43 @@ fun AppNavigation() {
         topBar = {
             val title = drawerItems.find { it.route == currentRoute }?.title ?: "Hatzolah"
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Text(
+                        title,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                ),
                 actions = {
-                    // RMA quick access
                     IconButton(onClick = {
-                        navController.navigate(Screen.Rma.route)
+                        navController.navigate(Screen.Supplies.route) {
+                            launchSingleTop = true
+                        }
+                    }) {
+                        Icon(Icons.Default.Inventory, contentDescription = "Supplies")
+                    }
+                    IconButton(onClick = {
+                        navController.navigate(Screen.Rma.route) {
+                            launchSingleTop = true
+                        }
                     }) {
                         Icon(Icons.Default.Call, contentDescription = "RMA")
                     }
-                    // Protocols quick access
                     IconButton(onClick = {
-                        navController.navigate(Screen.Protocols.route)
+                        navController.navigate(Screen.Protocols.route) {
+                            launchSingleTop = true
+                        }
                     }) {
                         Icon(Icons.Default.MedicalServices, contentDescription = "Protocols")
                     }
-                    // Admin access
                     IconButton(onClick = {
-                        navController.navigate(Screen.Admin.route)
+                        navController.navigate(Screen.Admin.route) {
+                            launchSingleTop = true
+                        }
                     }) {
                         Icon(Icons.Default.Settings, contentDescription = "Admin")
                     }

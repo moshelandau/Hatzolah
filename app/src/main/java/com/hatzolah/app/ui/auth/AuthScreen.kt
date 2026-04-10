@@ -4,10 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -26,9 +29,7 @@ fun AuthScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("Hatzolah Login") })
-        }
+        containerColor = MaterialTheme.colorScheme.primary
     ) { padding ->
         Column(
             modifier = Modifier
@@ -39,12 +40,30 @@ fun AuthScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Hatzolah Members App",
-                style = MaterialTheme.typography.headlineLarge,
-                textAlign = TextAlign.Center
+                text = "Hatzolah",
+                style = MaterialTheme.typography.displaySmall,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Black,
+                color = Color.White
+            )
+            Text(
+                text = "Members App",
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+                color = Color.White.copy(alpha = 0.8f)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
 
             if (uiState.isFirstTimeSetup) {
                 // First-time setup — create admin account
@@ -64,6 +83,8 @@ fun AuthScreen(
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyMedium
                 )
+            }
+                }
             }
         }
     }
