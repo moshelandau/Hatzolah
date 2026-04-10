@@ -12,15 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.hatzolah.app.ui.supplies.SuppliesViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallDocumentationScreen(
     callLogId: Long,
     onBack: () -> Unit,
-    viewModel: CallDocumentationViewModel = hiltViewModel(),
-    suppliesViewModel: SuppliesViewModel = hiltViewModel()
+    viewModel: CallDocumentationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var suppliesNeeded by remember { mutableStateOf("") }
@@ -31,9 +29,9 @@ fun CallDocumentationScreen(
 
     LaunchedEffect(uiState.saved) {
         if (uiState.saved) {
-            // When saving the call, also log any supplies that were used
+            // When saving the call, also save supplies
             if (suppliesNeeded.isNotBlank()) {
-                suppliesViewModel.addFromMultiLine(suppliesNeeded, callLogId)
+                viewModel.addSupplies(suppliesNeeded, callLogId)
             }
             onBack()
         }

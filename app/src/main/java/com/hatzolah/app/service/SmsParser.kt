@@ -13,7 +13,8 @@ class SmsParser @Inject constructor() {
         val units: String = "",
         val caller: String = "",
         val age: String = "",
-        val cad: String = ""
+        val cad: String = "",
+        val room: String = ""
     )
 
     /**
@@ -46,7 +47,10 @@ class SmsParser @Inject constructor() {
         val cad = Regex("CAD:\\s*(\\d+)", RegexOption.IGNORE_CASE)
             .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
 
-        val age = Regex("AGE:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|CALL|UNITS|http|$))", RegexOption.IGNORE_CASE)
+        val age = Regex("AGE:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|CALL|UNITS|ROOM|http|$))", RegexOption.IGNORE_CASE)
+            .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
+
+        val room = Regex("ROOM:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|CALL|UNITS|AGE|http|$))", RegexOption.IGNORE_CASE)
             .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
 
         // Extract address: it's after the header line (KJ EMS...) and before CALL TYPE
@@ -91,7 +95,7 @@ class SmsParser @Inject constructor() {
         }
 
         // Clean up address - remove any trailing field labels that got caught
-        address = address.replace(Regex("\\s*(CALL TYPE|CALLER|CAD|UNITS|AGE).*", RegexOption.IGNORE_CASE), "").trim()
+        address = address.replace(Regex("\\s*(CALL TYPE|CALLER|CAD|UNITS|AGE|ROOM).*", RegexOption.IGNORE_CASE), "").trim()
         address = address.trimEnd(',', ' ')
 
         if (address.isBlank()) {
@@ -105,17 +109,25 @@ class SmsParser @Inject constructor() {
             units = units,
             caller = caller,
             age = age,
-            cad = cad
+            cad = cad,
+            room = room
         )
     }
 
     /**
-     * URL-encodes an address for use in google.navigation: or geo: URIs.
-     * Proper encoding is required because addresses may contain # (apt numbers),
-     * commas, and other special characters that would otherwise break the URL.
+     * Strips unit/apt/room numbers from an address for Google Maps navigation.
+     * Google Maps can't route to "3 Hamaspik Way #011" but CAN route to "3 Hamaspik Way, Monroe 10950".
+     * The unit info is shown on the dispatch screen separately.
      */
     fun formatForNavigation(address: String): String {
-        return android.net.Uri.encode(address.trim())
+        var clean = address.trim()
+        // Remove unit/apt/room patterns that confuse Google Maps
+        clean = clean.replace(Regex("\\s*#\\d+[A-Za-z]?"), "")          // #011, #4B
+        clean = clean.replace(Regex("(?i)\\s*(apt|unit|suite|ste|rm|room)\\.?\\s*[A-Za-z0-9-]+"), "")
+        clean = clean.replace(Regex(",\\s*,"), ",")                      // double commas
+        clean = clean.replace(Regex("^\\s*,|,\\s*$"), "")               // leading/trailing commas
+        clean = clean.trim().trimEnd(',', ' ')
+        return android.net.Uri.encode(clean)
     }
 
     private fun cleanAddress(raw: String): String {

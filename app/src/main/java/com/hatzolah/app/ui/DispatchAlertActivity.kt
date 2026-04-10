@@ -122,10 +122,12 @@ class DispatchAlertActivity : ComponentActivity() {
 
     private fun navigateToAddress(address: String) {
         if (address.isBlank()) return
-        // URL-encode the address properly. Spaces become %20, # becomes %23, , becomes %2C etc.
-        // Using "+" for spaces and not encoding # breaks the URL (# is a fragment separator).
-        val cleanAddress = address.trim()
-        val encoded = Uri.encode(cleanAddress)
+        // Strip unit/apt/room numbers - Google Maps can't route to them
+        var clean = address.trim()
+        clean = clean.replace(Regex("\\s*#\\d+[A-Za-z]?"), "")
+        clean = clean.replace(Regex("(?i)\\s*(apt|unit|suite|ste|rm|room)\\.?\\s*[A-Za-z0-9-]+"), "")
+        clean = clean.replace(Regex(",\\s*,"), ",").trim().trimEnd(',', ' ')
+        val encoded = Uri.encode(clean)
 
         // google.navigation scheme launches turn-by-turn navigation in Google Maps
         val mapsIntent = Intent(

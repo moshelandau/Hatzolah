@@ -3,6 +3,8 @@ package com.hatzolah.app.ui.callhistory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hatzolah.app.data.repository.CallLogRepository
+import com.hatzolah.app.data.repository.SupplyRepository
+import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +25,9 @@ data class CallDocumentationUiState(
 
 @HiltViewModel
 class CallDocumentationViewModel @Inject constructor(
-    private val callLogRepository: CallLogRepository
+    private val callLogRepository: CallLogRepository,
+    private val supplyRepository: SupplyRepository,
+    private val preferencesManager: PreferencesManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CallDocumentationUiState())
@@ -94,6 +98,14 @@ class CallDocumentationViewModel @Inject constructor(
             } catch (e: Throwable) {
                 _uiState.update { it.copy(isLoading = false, error = "Save failed: ${e.message}") }
             }
+        }
+    }
+
+    fun addSupplies(text: String, callLogId: Long) {
+        viewModelScope.launch {
+            try {
+                supplyRepository.addFromNote(text, callLogId, preferencesManager.getLoggedInMemberId())
+            } catch (_: Throwable) { /* don't crash */ }
         }
     }
 }
