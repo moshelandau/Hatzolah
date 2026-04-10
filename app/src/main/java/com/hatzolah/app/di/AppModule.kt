@@ -27,7 +27,7 @@ object AppModule {
         return Room.databaseBuilder(
             context,
             HatzolahDatabase::class.java,
-            "hatzolah_db_v1"
+            "hatzolah_db_v1b"
         ).addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
