@@ -62,8 +62,8 @@ class PreferencesManager @Inject constructor(
         if (!prefs.getBoolean(KEY_ACTIVE_DISPATCH, false)) return false
         val ts = prefs.getLong(KEY_DISPATCH_TIMESTAMP, 0)
         val ageMs = System.currentTimeMillis() - ts
-        // Auto-expire after 30 minutes to prevent stale alerts
-        if (ageMs > 30 * 60 * 1000) {
+        // Auto-expire after 10 minutes to prevent stale alerts
+        if (ageMs > 10 * 60 * 1000) {
             clearActiveDispatch()
             return false
         }
