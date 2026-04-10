@@ -21,11 +21,13 @@ import com.hatzolah.app.ui.dashboard.DashboardScreen
 import com.hatzolah.app.ui.hospital.HospitalDirectoryScreen
 import com.hatzolah.app.ui.member.MemberDirectoryScreen
 import com.hatzolah.app.ui.protocols.ProtocolsScreen
+import com.hatzolah.app.ui.residents.ResidentsScreen
 import com.hatzolah.app.ui.rma.RmaScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "Home", Icons.Default.Home)
     data object Hospitals : Screen("hospitals", "Hospitals", Icons.Default.LocalHospital)
+    data object Residents : Screen("residents", "Phone Book", Icons.Default.ContactPhone)
     data object Members : Screen("members", "Members", Icons.Default.People)
     data object Analytics : Screen("analytics", "Stats", Icons.Default.BarChart)
     data object CallHistory : Screen("call_history", "Calls", Icons.Default.History)
@@ -38,7 +40,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 val bottomNavItems = listOf(
     Screen.Dashboard,
     Screen.Hospitals,
-    Screen.Members,
+    Screen.Residents,
     Screen.CallHistory,
     Screen.Analytics
 )
@@ -46,6 +48,7 @@ val bottomNavItems = listOf(
 val drawerItems = listOf(
     Screen.Dashboard,
     Screen.Hospitals,
+    Screen.Residents,
     Screen.Members,
     Screen.CallHistory,
     Screen.Analytics,
@@ -116,6 +119,7 @@ fun AppNavigation() {
         ) {
             composable(Screen.Dashboard.route) { DashboardScreen() }
             composable(Screen.Hospitals.route) { HospitalDirectoryScreen() }
+            composable(Screen.Residents.route) { ResidentsScreen() }
             composable(Screen.Members.route) { MemberDirectoryScreen() }
             composable(Screen.CallHistory.route) {
                 CallHistoryScreen(
