@@ -27,7 +27,7 @@ class HatzolahApp : Application() {
         val prefs = getSharedPreferences("hatzolah_prefs", MODE_PRIVATE)
         if (!prefs.contains("defaults_configured")) {
             prefs.edit()
-                .putString("dispatch_number", "8454810055")
+                .putString("dispatch_number", "8445991212")
                 .putString("rma_hotline", "8453675077")
                 .putBoolean("defaults_configured", true)
                 .apply()

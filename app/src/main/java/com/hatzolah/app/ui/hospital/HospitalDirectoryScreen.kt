@@ -281,6 +281,9 @@ private fun HospitalCard(
                 if (h.patientAssistanceNotes.isNotBlank()) {
                     InfoRow(Icons.Default.Info, "Patient Assistance", h.patientAssistanceNotes)
                 }
+                if (h.bedAvailability.isNotBlank()) {
+                    InfoRow(Icons.Default.Hotel, "Bikur Cholim", h.bedAvailability)
+                }
                 if (h.additionalNotes.isNotBlank()) {
                     InfoRow(Icons.Default.Note, "Notes", h.additionalNotes)
                 }

@@ -16,6 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.data.database.entity.Hospital
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +26,7 @@ fun AdminScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddMemberDialog by remember { mutableStateOf(false) }
     var showAddHospitalDialog by remember { mutableStateOf(false) }
+    var editingHospital by remember { mutableStateOf<com.hatzolah.app.data.database.entity.Hospital?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Tab row for Settings / Members / Hospitals
@@ -52,7 +54,11 @@ fun AdminScreen(
         when (uiState.activeTab) {
             0 -> SettingsTab(uiState, viewModel)
             1 -> MembersTab(uiState, viewModel, onAddClick = { showAddMemberDialog = true })
-            2 -> HospitalsTab(uiState, viewModel, onAddClick = { showAddHospitalDialog = true })
+            2 -> HospitalsTab(
+                uiState, viewModel,
+                onAddClick = { showAddHospitalDialog = true },
+                onEditClick = { hospital -> editingHospital = hospital }
+            )
         }
     }
 
@@ -76,6 +82,17 @@ fun AdminScreen(
                     lat, lng, mainHotline, obHotline, deptHotlines, commSystem, beds
                 )
                 showAddHospitalDialog = false
+            }
+        )
+    }
+
+    editingHospital?.let { hospital ->
+        EditHospitalDialog(
+            hospital = hospital,
+            onDismiss = { editingHospital = null },
+            onSave = { updated ->
+                viewModel.updateHospital(updated)
+                editingHospital = null
             }
         )
     }
@@ -285,7 +302,10 @@ private fun MembersTab(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             items(uiState.members) { member ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -330,7 +350,8 @@ private fun MembersTab(
 private fun HospitalsTab(
     uiState: AdminUiState,
     viewModel: AdminViewModel,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onEditClick: (Hospital) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -353,7 +374,10 @@ private fun HospitalsTab(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             items(uiState.hospitals) { hospital ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -375,6 +399,13 @@ private fun HospitalsTab(
                             if (hospital.communicationSystem.isNotBlank()) {
                                 Text(text = "Comm: ${hospital.communicationSystem}", style = MaterialTheme.typography.bodySmall)
                             }
+                        }
+                        IconButton(onClick = { onEditClick(hospital) }) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                         IconButton(onClick = { viewModel.deleteHospital(hospital) }) {
                             Icon(
@@ -473,8 +504,8 @@ fun AddHospitalDialog(
         text = {
             Column(
                 modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .heightIn(max = 400.dp),
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
@@ -567,7 +598,7 @@ fun AddHospitalDialog(
                 OutlinedTextField(
                     value = beds,
                     onValueChange = { beds = it },
-                    label = { Text("Bed Availability Notes") },
+                    label = { Text("Bikur Cholim Contact") },
                     singleLine = true
                 )
             }
@@ -589,6 +620,166 @@ fun AddHospitalDialog(
                 enabled = name.isNotBlank() && address.isNotBlank()
             ) {
                 Text("Add Hospital")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun EditHospitalDialog(
+    hospital: Hospital,
+    onDismiss: () -> Unit,
+    onSave: (Hospital) -> Unit
+) {
+    var name by remember { mutableStateOf(hospital.name) }
+    var address by remember { mutableStateOf(hospital.address) }
+    var erLocation by remember { mutableStateOf(hospital.erLocation) }
+    var accessCodes by remember { mutableStateOf(hospital.accessCodes) }
+    var kosherRoom by remember { mutableStateOf(hospital.kosherRoomLocation) }
+    var patientAssistance by remember { mutableStateOf(hospital.patientAssistanceNotes) }
+    var latitude by remember { mutableStateOf(if (hospital.latitude != 0.0) hospital.latitude.toString() else "") }
+    var longitude by remember { mutableStateOf(if (hospital.longitude != 0.0) hospital.longitude.toString() else "") }
+    var mainHotline by remember { mutableStateOf(hospital.mainHotline) }
+    var obHotline by remember { mutableStateOf(hospital.obHotline) }
+    var deptHotlines by remember { mutableStateOf(hospital.departmentHotlines) }
+    var commSystem by remember { mutableStateOf(hospital.communicationSystem) }
+    var beds by remember { mutableStateOf(hospital.bedAvailability) }
+    var additionalNotes by remember { mutableStateOf(hospital.additionalNotes) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Hospital") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Hospital Name *") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = { address = it },
+                    label = { Text("Address *") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = erLocation,
+                    onValueChange = { erLocation = it },
+                    label = { Text("ER Location") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = accessCodes,
+                    onValueChange = { accessCodes = it },
+                    label = { Text("Access Codes") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = kosherRoom,
+                    onValueChange = { kosherRoom = it },
+                    label = { Text("Kosher Room Location") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = patientAssistance,
+                    onValueChange = { patientAssistance = it },
+                    label = { Text("Patient Assistance") },
+                    singleLine = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = latitude,
+                        onValueChange = { latitude = it },
+                        label = { Text("Latitude") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    OutlinedTextField(
+                        value = longitude,
+                        onValueChange = { longitude = it },
+                        label = { Text("Longitude") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+                OutlinedTextField(
+                    value = mainHotline,
+                    onValueChange = { mainHotline = it },
+                    label = { Text("Main Hotline") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = obHotline,
+                    onValueChange = { obHotline = it },
+                    label = { Text("OB Hotline") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = deptHotlines,
+                    onValueChange = { deptHotlines = it },
+                    label = { Text("Other Dept Hotlines") }
+                )
+                OutlinedTextField(
+                    value = commSystem,
+                    onValueChange = { commSystem = it },
+                    label = { Text("Communication System") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = beds,
+                    onValueChange = { beds = it },
+                    label = { Text("Bikur Cholim Contact") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = additionalNotes,
+                    onValueChange = { additionalNotes = it },
+                    label = { Text("Additional Notes") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsedLat = latitude.toDoubleOrNull() ?: 0.0
+                    val parsedLng = longitude.toDoubleOrNull() ?: 0.0
+                    val validLat = if (parsedLat in -90.0..90.0) parsedLat else 0.0
+                    val validLng = if (parsedLng in -180.0..180.0) parsedLng else 0.0
+                    onSave(
+                        hospital.copy(
+                            name = name,
+                            address = address,
+                            erLocation = erLocation,
+                            accessCodes = accessCodes,
+                            kosherRoomLocation = kosherRoom,
+                            patientAssistanceNotes = patientAssistance,
+                            latitude = validLat,
+                            longitude = validLng,
+                            mainHotline = mainHotline,
+                            obHotline = obHotline,
+                            departmentHotlines = deptHotlines,
+                            communicationSystem = commSystem,
+                            bedAvailability = beds,
+                            additionalNotes = additionalNotes
+                        )
+                    )
+                },
+                enabled = name.isNotBlank() && address.isNotBlank()
+            ) {
+                Text("Save")
             }
         },
         dismissButton = {

@@ -208,6 +208,12 @@ class AdminViewModel @Inject constructor(
         }
     }
 
+    fun updateHospital(hospital: Hospital) {
+        viewModelScope.launch {
+            hospitalRepository.updateHospital(hospital)
+        }
+    }
+
     fun deleteHospital(hospital: Hospital) {
         viewModelScope.launch {
             hospitalRepository.deleteHospital(hospital)
