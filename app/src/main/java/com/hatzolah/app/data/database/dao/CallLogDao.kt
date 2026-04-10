@@ -29,6 +29,8 @@ interface CallLogDao {
     @Query("SELECT COALESCE(SUM(milesTraveled), 0.0) FROM call_logs")
     fun getTotalTeamMiles(): Flow<Double>
 
+    // Intentionally excludes calls with callDurationMinutes == 0, as those represent calls
+    // without recorded duration data (e.g. cancelled or incomplete) and would skew the average.
     @Query("SELECT COALESCE(AVG(callDurationMinutes), 0) FROM call_logs WHERE callDurationMinutes > 0")
     fun getAverageResponseTime(): Flow<Int>
 

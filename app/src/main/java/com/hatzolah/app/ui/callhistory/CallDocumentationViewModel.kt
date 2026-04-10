@@ -18,6 +18,7 @@ data class CallDocumentationUiState(
     val patientName: String = "",
     val patientDob: String = "",
     val medicalNotes: String = "",
+    val suppliesNeeded: String = "",
     val isLoading: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null
@@ -72,6 +73,7 @@ class CallDocumentationViewModel @Inject constructor(
     fun onPatientNameChanged(name: String) = _uiState.update { it.copy(patientName = name, error = null) }
     fun onPatientDobChanged(dob: String) = _uiState.update { it.copy(patientDob = dob, error = null) }
     fun onMedicalNotesChanged(notes: String) = _uiState.update { it.copy(medicalNotes = notes, error = null) }
+    fun onSuppliesNeededChanged(supplies: String) = _uiState.update { it.copy(suppliesNeeded = supplies) }
 
     fun saveDocumentation() {
         if (callLogId <= 0L) {
@@ -99,6 +101,10 @@ class CallDocumentationViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = "Save failed: ${e.message}") }
             }
         }
+    }
+
+    fun resetSaved() {
+        _uiState.update { it.copy(saved = false) }
     }
 
     fun addSupplies(text: String, callLogId: Long) {

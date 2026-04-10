@@ -1,9 +1,10 @@
 package com.hatzolah.app.data.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "call_logs")
+@Entity(tableName = "call_logs", indices = [Index(value = ["memberId"]), Index(value = ["date"])])
 data class CallLog(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

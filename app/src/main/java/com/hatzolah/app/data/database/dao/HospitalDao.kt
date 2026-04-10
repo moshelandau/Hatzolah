@@ -13,7 +13,7 @@ interface HospitalDao {
     @Query("SELECT * FROM hospitals WHERE id = :id")
     suspend fun getHospitalById(id: Long): Hospital?
 
-    @Query("SELECT * FROM hospitals WHERE name LIKE '%' || :query || '%' OR address LIKE '%' || :query || '%'")
+    @Query("SELECT * FROM hospitals WHERE name LIKE '%' || :query || '%' COLLATE NOCASE OR address LIKE '%' || :query || '%' COLLATE NOCASE")
     fun searchHospitals(query: String): Flow<List<Hospital>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

@@ -40,6 +40,7 @@ class AnalyticsViewModel @Inject constructor(
         startOfMonth = calendar.timeInMillis
 
         calendar.add(Calendar.MONTH, 1)
+        calendar.add(Calendar.MILLISECOND, -1)
         endOfMonth = calendar.timeInMillis
     }
 

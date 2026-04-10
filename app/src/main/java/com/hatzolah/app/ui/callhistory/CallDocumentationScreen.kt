@@ -21,7 +21,6 @@ fun CallDocumentationScreen(
     viewModel: CallDocumentationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var suppliesNeeded by remember { mutableStateOf("") }
 
     LaunchedEffect(callLogId) {
         viewModel.loadCallLog(callLogId)
@@ -30,10 +29,11 @@ fun CallDocumentationScreen(
     LaunchedEffect(uiState.saved) {
         if (uiState.saved) {
             // When saving the call, also save supplies
-            if (suppliesNeeded.isNotBlank()) {
-                viewModel.addSupplies(suppliesNeeded, callLogId)
+            if (uiState.suppliesNeeded.isNotBlank()) {
+                viewModel.addSupplies(uiState.suppliesNeeded, callLogId)
             }
             onBack()
+            viewModel.resetSaved()
         }
     }
 
@@ -110,8 +110,8 @@ fun CallDocumentationScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = suppliesNeeded,
-                        onValueChange = { suppliesNeeded = it },
+                        value = uiState.suppliesNeeded,
+                        onValueChange = viewModel::onSuppliesNeededChanged,
                         label = { Text("Items to restock") },
                         placeholder = {
                             Text(

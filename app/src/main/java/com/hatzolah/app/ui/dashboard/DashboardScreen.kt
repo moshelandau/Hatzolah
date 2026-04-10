@@ -253,7 +253,7 @@ fun DashboardScreen(
             StatCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Schedule,
-                value = "${uiState.personalMinutes / 60}h",
+                value = "${String.format("%.1f", uiState.personalMinutes / 60.0)}h",
                 label = "Hours",
                 color = Color(0xFF6A1B9A)
             )
