@@ -72,6 +72,7 @@ class AuthViewModel @Inject constructor(
 
             val name = _uiState.value.name.trim()
             val phone = _uiState.value.phoneNumber.trim()
+                .replace(Regex("[^0-9+]"), "").takeLast(10)
 
             if (name.isBlank() || phone.isBlank()) {
                 _uiState.update { it.copy(isLoading = false, error = "Name and phone are required") }

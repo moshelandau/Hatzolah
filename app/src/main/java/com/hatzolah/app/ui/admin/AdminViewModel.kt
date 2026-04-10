@@ -67,10 +67,11 @@ class AdminViewModel @Inject constructor(
 
     fun addMember(name: String, phone: String, whatsapp: String, email: String) {
         viewModelScope.launch {
+            val normalizedPhone = phone.replace(Regex("[^0-9+]"), "").takeLast(10)
             memberRepository.addMember(
                 Member(
                     name = name,
-                    phoneNumber = phone,
+                    phoneNumber = normalizedPhone,
                     whatsappContact = whatsapp,
                     email = email
                 )
