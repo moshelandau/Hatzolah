@@ -19,6 +19,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.data.database.entity.Member
 import com.hatzolah.app.data.database.entity.Resident
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,11 +40,14 @@ fun ResidentsScreen(
         ) {
             Column {
                 Text(
-                    text = "KJ Phone Book",
+                    text = "Phone Book",
                     style = MaterialTheme.typography.headlineMedium
                 )
                 Text(
-                    text = "${uiState.totalCount} residents",
+                    text = if (uiState.activeTab == 0)
+                        "${uiState.totalCount} residents"
+                    else
+                        "${uiState.memberCount} Hatzolah members",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -51,6 +55,24 @@ fun ResidentsScreen(
             IconButton(onClick = { showImportDialog = true }) {
                 Icon(Icons.Default.Upload, contentDescription = "Import")
             }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Tab row for Residents / Members
+        TabRow(selectedTabIndex = uiState.activeTab) {
+            Tab(
+                selected = uiState.activeTab == 0,
+                onClick = { viewModel.onTabChanged(0) },
+                text = { Text("Residents") },
+                icon = { Icon(Icons.Default.Home, contentDescription = null) }
+            )
+            Tab(
+                selected = uiState.activeTab == 1,
+                onClick = { viewModel.onTabChanged(1) },
+                text = { Text("Members") },
+                icon = { Icon(Icons.Default.People, contentDescription = null) }
+            )
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -97,48 +119,86 @@ fun ResidentsScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // List
-        if (uiState.residents.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.ContactPhone,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = if (uiState.totalCount == 0)
-                            "No phone book data yet.\nTap the upload icon to import."
-                        else
-                            "No results for \"${uiState.query}\"",
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        // List - either residents or members depending on selected tab
+        if (uiState.activeTab == 0) {
+            if (uiState.residents.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.ContactPhone,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (uiState.totalCount == 0)
+                                "No phone book data yet.\nTap the upload icon to import."
+                            else
+                                "No results for \"${uiState.query}\"",
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(uiState.residents, key = { "${it.id}_${it.phoneNumber}" }) { resident ->
+                        ResidentRow(
+                            resident = resident,
+                            onClick = { viewModel.selectResident(resident) },
+                            onCall = { callNumber(context, resident.phoneNumber) }
+                        )
+                    }
+                    if (uiState.residents.size >= 200) {
+                        item {
+                            Text(
+                                text = "Showing first 200 results. Refine your search.",
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(uiState.residents, key = { "${it.id}_${it.phoneNumber}" }) { resident ->
-                    ResidentRow(
-                        resident = resident,
-                        onClick = { viewModel.selectResident(resident) },
-                        onCall = { callNumber(context, resident.phoneNumber) }
-                    )
-                }
-                if (uiState.residents.size >= 200) {
-                    item {
+            // Members tab
+            if (uiState.members.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.People,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Showing first 200 results. Refine your search.",
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                            text = if (uiState.query.isBlank())
+                                "No members yet"
+                            else
+                                "No members matching \"${uiState.query}\"",
                             textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(uiState.members, key = { it.id }) { member ->
+                        MemberRow(
+                            member = member,
+                            onCall = { callNumber(context, member.phoneNumber) }
                         )
                     }
                 }
@@ -192,6 +252,66 @@ fun ResidentsScreen(
             }
         )
     }
+}
+
+@Composable
+private fun MemberRow(
+    member: Member,
+    onCall: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onCall)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = member.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (member.unitNumber.isNotBlank()) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = member.unitNumber,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                if (member.phoneNumber.isNotBlank()) {
+                    Text(
+                        text = formatUsPhone(member.phoneNumber),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            IconButton(onClick = onCall) {
+                Icon(
+                    Icons.Default.Phone,
+                    contentDescription = "Call",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+private fun formatUsPhone(raw: String): String {
+    val digits = raw.filter { it.isDigit() }.takeLast(10)
+    return if (digits.length == 10) {
+        "(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}"
+    } else raw
 }
 
 @Composable
