@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.hatzolah.app.ui.admin.AdminScreen
 import com.hatzolah.app.ui.analytics.AnalyticsScreen
+import com.hatzolah.app.ui.calendar.CalendarScreen
 import com.hatzolah.app.ui.callhistory.CallDocumentationScreen
 import com.hatzolah.app.ui.callhistory.CallHistoryScreen
 import com.hatzolah.app.ui.dashboard.DashboardScreen
@@ -41,6 +42,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Supplies : Screen("supplies", "Supplies", Icons.Default.Inventory)
     data object Rma : Screen("rma", "RMA", Icons.Default.Call)
     data object Protocols : Screen("protocols", "Protocols", Icons.Default.MedicalServices)
+    data object Calendar : Screen("calendar", "Calendar", Icons.Default.CalendarMonth)
     data object Admin : Screen("admin", "Admin", Icons.Default.AdminPanelSettings)
     data object CallDocumentation : Screen("document/{callId}", "Document", Icons.Default.Edit)
 }
@@ -50,7 +52,7 @@ val bottomNavItems = listOf(
     Screen.Hospitals,
     Screen.Residents,
     Screen.CallHistory,
-    Screen.Analytics
+    Screen.Calendar
 )
 
 val drawerItems = listOf(
@@ -59,6 +61,7 @@ val drawerItems = listOf(
     Screen.Residents,
     Screen.Members,
     Screen.CallHistory,
+    Screen.Calendar,
     Screen.Supplies,
     Screen.Analytics,
     Screen.Rma,
@@ -73,6 +76,21 @@ fun AppNavigation() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
+    // Single helper used by both the bottom nav and the top-bar icons so every
+    // top-level destination is popped back to Dashboard before navigating.
+    // This keeps the back stack from growing unbounded when the user flips
+    // between Admin / Calendar / Hospitals / etc. via the top bar, which is
+    // what caused the "Home button does nothing after opening Admin" bug.
+    val navigateTopLevel: (String) -> Unit = { route ->
+        if (currentRoute != route) {
+            navController.navigate(route) {
+                popUpTo(Screen.Dashboard.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -84,15 +102,7 @@ fun AppNavigation() {
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
                         label = { Text(screen.title, fontSize = 11.sp) },
                         selected = currentRoute == screen.route,
-                        onClick = {
-                            if (currentRoute != screen.route) {
-                                navController.navigate(screen.route) {
-                                    popUpTo(Screen.Dashboard.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
+                        onClick = { navigateTopLevel(screen.route) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -117,32 +127,19 @@ fun AppNavigation() {
                     actionIconContentColor = Color.White
                 ),
                 actions = {
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Supplies.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Analytics.route) }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Stats")
+                    }
+                    IconButton(onClick = { navigateTopLevel(Screen.Supplies.route) }) {
                         Icon(Icons.Default.Inventory, contentDescription = "Supplies")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Rma.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Rma.route) }) {
                         Icon(Icons.Default.Call, contentDescription = "RMA")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Protocols.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Protocols.route) }) {
                         Icon(Icons.Default.MedicalServices, contentDescription = "Protocols")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Admin.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Admin.route) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Admin")
                     }
                 }
@@ -175,6 +172,7 @@ fun AppNavigation() {
             }
             composable(Screen.Protocols.route) { ProtocolsScreen() }
             composable(Screen.Supplies.route) { SuppliesScreen() }
+            composable(Screen.Calendar.route) { CalendarScreen() }
             composable(Screen.Admin.route) { AdminScreen() }
             composable(
                 route = "document/{callId}",

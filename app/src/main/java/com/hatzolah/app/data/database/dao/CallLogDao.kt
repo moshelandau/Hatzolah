@@ -47,6 +47,10 @@ interface CallLogDao {
     @Query("SELECT COUNT(*) FROM call_logs WHERE memberId = :memberId AND date >= :startOfMonth AND date < :endOfMonth")
     fun getPersonalCallsThisMonth(memberId: Long, startOfMonth: Long, endOfMonth: Long): Flow<Int>
 
+    /** Returns every call in the given half-open epoch-ms range, used by the calendar screen. */
+    @Query("SELECT * FROM call_logs WHERE date >= :startMs AND date < :endMs ORDER BY date ASC")
+    fun getCallLogsByDateRange(startMs: Long, endMs: Long): Flow<List<CallLog>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(callLog: CallLog): Long
 
