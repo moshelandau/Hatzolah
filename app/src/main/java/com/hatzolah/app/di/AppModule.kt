@@ -12,6 +12,7 @@ import com.hatzolah.app.data.database.dao.MemberDao
 import com.hatzolah.app.data.database.dao.ResidentDao
 import com.hatzolah.app.data.database.dao.SupplyRequestDao
 import com.hatzolah.app.data.database.entity.Hospital
+import com.hatzolah.app.util.PrepopulatedMembers
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -26,6 +27,41 @@ object AppModule {
     private val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE members ADD COLUMN unitNumber TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Pre-populate the team roster for existing installs. Skips rows
+            // whose phone number is already in the database so we don't
+            // duplicate the admin member.
+            insertPrepopulatedMembers(db)
+            // Make sure the admin member has their unit number set.
+            db.execSQL(
+                "UPDATE members SET unitNumber = 'KY85' WHERE phoneNumber = ? AND (unitNumber IS NULL OR unitNumber = '')",
+                arrayOf(PrepopulatedMembers.ADMIN_PHONE)
+            )
+        }
+    }
+
+    /**
+     * Inserts every entry from [PrepopulatedMembers.all] into the members
+     * table, skipping any row whose phoneNumber already exists. Called from
+     * both `onCreate` (fresh installs) and `MIGRATION_3_4` (existing installs).
+     */
+    private fun insertPrepopulatedMembers(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+        // Guard with NOT EXISTS so re-running the migration or mixing with
+        // onCreate's admin insert doesn't create duplicates.
+        val sql = "INSERT INTO members (name, phoneNumber, whatsappContact, email, unitNumber, isVerified, isAdmin, createdAt) " +
+                "SELECT ?, ?, ?, ?, ?, ?, ?, ? " +
+                "WHERE NOT EXISTS (SELECT 1 FROM members WHERE phoneNumber = ?)"
+        for (entry in PrepopulatedMembers.all) {
+            val isAdmin = if (entry.phone == PrepopulatedMembers.ADMIN_PHONE) 1 else 0
+            db.execSQL(
+                sql,
+                arrayOf(entry.name, entry.phone, "", "", entry.unitNumber, 1, isAdmin, now, entry.phone)
+            )
         }
     }
 
@@ -54,11 +90,12 @@ object AppModule {
             context,
             HatzolahDatabase::class.java,
             "hatzolah_db_v1b"
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).addCallback(object : RoomDatabase.Callback() {
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
-                // Pre-populate admin member and test member (all NOT NULL columns must be specified)
-                db.execSQL("INSERT INTO members (name, phoneNumber, whatsappContact, email, unitNumber, isVerified, isAdmin, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", arrayOf("Moshe Landau", "8455008085", "", "", "", 1, 1, System.currentTimeMillis()))
+                // Pre-populate the entire team roster (BLS + Medics) and flag
+                // Moshe Yosef Landau (KY85) as the admin.
+                insertPrepopulatedMembers(db)
                 // Test number 8454810055 is configured as dispatch_number in SharedPreferences for testing
 
                 // Pre-populate hospitals using parameterized queries to avoid SQL injection issues

@@ -68,8 +68,8 @@ object UnitClassifier {
         val prefix = upper.takeWhile { it.isLetter() }
         return when (prefix) {
             "KM" -> "Medic"
-            "KY" -> "EMT"
-            "K" -> "EMT"
+            "KY" -> "BLS"
+            "K" -> "BLS"
             else -> ""
         }
     }
