@@ -3,14 +3,11 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  9179996  21016 -rw-r--r--   1 runner   runner   21517919 Apr 12 15:17 app/build/outputs/apk/debug/app-debug.apk
+  8927118  21056 -rw-r--r--   1 runner   runner   21560163 Apr 12 15:28 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:processDebugManifestForPackage
 > Task :app:processDebugResources
-> Task :app:validateSigningDebug
-> Task :app:writeDebugAppMetadata
-> Task :app:writeDebugSigningConfigVersions
 > Task :app:mergeExtDexDebug
 > Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
@@ -20,6 +17,7 @@
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:287:5 Parameter 'rawMessage' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:305:9 Variable 'scope' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/analytics/AnalyticsScreen.kt:54:57 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/calendar/CalendarScreen.kt:319:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallDocumentationScreen.kt:48:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallHistoryScreen.kt:221:56 'Notes: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Notes
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/dashboard/DashboardScreen.kt:241:38 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
@@ -30,6 +28,8 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/member/MemberDirectoryScreen.kt:73:72 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/protocols/ProtocolsScreen.kt:79:29 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/residents/ResidentsScreen.kt:330:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/HebrewDate.kt:131:58 The value '0' assigned to 'var remaining: Int defined in com.hatzolah.app.util.HebrewDate.hebrewYearShort.`<anonymous>`' is never used
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/HebrewDate.kt:132:42 The value '0' assigned to 'var remaining: Int defined in com.hatzolah.app.util.HebrewDate.hebrewYearShort.`<anonymous>`' is never used
 
 > Task :app:compileDebugJavaWithJavac
 > Task :app:hiltAggregateDepsDebug
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 25s
+BUILD SUCCESSFUL in 1m 29s
 40 actionable tasks: 40 executed
