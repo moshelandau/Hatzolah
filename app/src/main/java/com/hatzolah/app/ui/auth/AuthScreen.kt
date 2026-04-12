@@ -1,20 +1,25 @@
 package com.hatzolah.app.ui.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.util.DevicePhoneUtil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,9 +28,36 @@ fun AuthScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.isAuthenticated) {
         if (uiState.isAuthenticated) onAuthSuccess()
+    }
+
+    // Permission launcher to request READ_PHONE_NUMBERS at runtime
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val detected = DevicePhoneUtil.getDevicePhoneNumber(context)
+            viewModel.onDevicePhoneDetected(detected)
+        } else {
+            // User denied - fall back to manual entry
+            viewModel.onDevicePhoneDetected(null)
+        }
+    }
+
+    // On first launch (not first-time setup, not already authenticated, not already in manual mode),
+    // try to auto-detect the device's phone number.
+    LaunchedEffect(uiState.isFirstTimeSetup) {
+        if (!uiState.isFirstTimeSetup && !uiState.isAuthenticated && !uiState.manualEntryMode && uiState.detectedPhoneNumber == null) {
+            if (DevicePhoneUtil.hasPermission(context)) {
+                val detected = DevicePhoneUtil.getDevicePhoneNumber(context)
+                viewModel.onDevicePhoneDetected(detected)
+            } else {
+                permissionLauncher.launch(DevicePhoneUtil.requiredPermission())
+            }
+        }
     }
 
     Scaffold(
@@ -65,25 +97,23 @@ fun AuthScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-            if (uiState.isFirstTimeSetup) {
-                // First-time setup — create admin account
-                FirstTimeSetupContent(uiState, viewModel)
-            } else if (!uiState.codeSent) {
-                // Normal login — phone number entry
-                PhoneEntryContent(uiState, viewModel)
-            } else {
-                // Verification code entry
-                VerificationCodeContent(uiState, viewModel)
-            }
+                    if (uiState.isFirstTimeSetup) {
+                        FirstTimeSetupContent(uiState, viewModel)
+                    } else if (uiState.manualEntryMode) {
+                        ManualPhoneEntryContent(uiState, viewModel)
+                    } else {
+                        AutoDetectContent(uiState)
+                    }
 
-            uiState.error?.let { error ->
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
+                    uiState.error?.let { error ->
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }
@@ -156,15 +186,56 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
 }
 
 @Composable
-private fun PhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
+private fun AutoDetectContent(uiState: AuthUiState) {
+    Icon(
+        imageVector = Icons.Default.PhoneAndroid,
+        contentDescription = null,
+        modifier = Modifier.size(48.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
     Text(
-        text = "Enter your registered phone number to receive a verification code",
+        text = "Detecting your phone...",
+        style = MaterialTheme.typography.titleMedium,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Text(
+        text = "The app is reading your phone number from your device settings to sign you in automatically.",
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 
-    Spacer(modifier = Modifier.height(32.dp))
+    Spacer(modifier = Modifier.height(20.dp))
+
+    if (uiState.isLoading) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
+    Text(
+        text = "Enter Your Phone Number",
+        style = MaterialTheme.typography.titleMedium,
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    Text(
+        text = "We couldn't read your phone number automatically. Please enter it manually to sign in.",
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    Spacer(modifier = Modifier.height(24.dp))
 
     OutlinedTextField(
         value = uiState.phoneNumber,
@@ -178,7 +249,7 @@ private fun PhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
     Spacer(modifier = Modifier.height(16.dp))
 
     Button(
-        onClick = viewModel::sendVerificationCode,
+        onClick = viewModel::loginWithManualPhone,
         modifier = Modifier.fillMaxWidth(),
         enabled = uiState.phoneNumber.length >= 10 && !uiState.isLoading
     ) {
@@ -188,80 +259,7 @@ private fun PhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
                 color = MaterialTheme.colorScheme.onPrimary
             )
         } else {
-            Text("Send Verification Code")
+            Text("Sign In")
         }
-    }
-}
-
-@Composable
-private fun VerificationCodeContent(uiState: AuthUiState, viewModel: AuthViewModel) {
-    Text(
-        text = "Code sent to ${uiState.phoneNumber}",
-        style = MaterialTheme.typography.bodyMedium
-    )
-
-    // Show the code on screen for testing
-    uiState.displayedCode?.let { code ->
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Your verification code:",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = code,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-                Text(
-                    text = "(Shown here for testing — will be SMS only in production)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-    }
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    OutlinedTextField(
-        value = uiState.verificationCode,
-        onValueChange = viewModel::onCodeChanged,
-        label = { Text("Verification Code") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-    )
-
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Button(
-        onClick = viewModel::verifyCode,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = uiState.verificationCode.length == 6 && !uiState.isLoading
-    ) {
-        if (uiState.isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-        } else {
-            Text("Verify")
-        }
-    }
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    TextButton(onClick = viewModel::resetToPhoneEntry) {
-        Text("Use a different number")
     }
 }
