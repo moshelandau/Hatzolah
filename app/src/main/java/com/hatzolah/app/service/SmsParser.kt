@@ -15,7 +15,10 @@ class SmsParser @Inject constructor() {
         val age: String = "",
         val cad: String = "",
         val room: String = ""
-    )
+    ) {
+        /** Parsed unit list: splits the raw `units` string by comma/whitespace. */
+        val unitList: List<String> get() = UnitClassifier.splitUnits(units)
+    }
 
     /**
      * Parses Hatzolah dispatch SMS messages.

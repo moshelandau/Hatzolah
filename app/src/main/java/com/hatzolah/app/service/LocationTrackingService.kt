@@ -13,6 +13,9 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.*
 import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.data.repository.CallLogRepository
+import com.hatzolah.app.data.repository.FirebaseResponderRepository
+import com.hatzolah.app.data.repository.MemberRepository
+import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +32,9 @@ import javax.inject.Inject
 class LocationTrackingService : Service() {
 
     @Inject lateinit var callLogRepository: CallLogRepository
+    @Inject lateinit var memberRepository: MemberRepository
+    @Inject lateinit var firebaseResponderRepository: FirebaseResponderRepository
+    @Inject lateinit var preferencesManager: PreferencesManager
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var fusedLocationClient: FusedLocationProviderClient? = null
@@ -38,6 +44,7 @@ class LocationTrackingService : Service() {
     private var totalDistanceMeters: Double = 0.0
     private var activeCallLogId: Long = -1
     private var updatesStarted: Boolean = false
+    private var hasEverBeenOnScene: Boolean = false
 
     companion object {
         const val EXTRA_CALL_LOG_ID = "call_log_id"
@@ -131,6 +138,53 @@ class LocationTrackingService : Service() {
             }
         }
         lastLocation = location
+        updateResponderStatus(location)
+    }
+
+    /**
+     * Compares current location to the active dispatch scene and updates the
+     * responder status: BLUE (en route) -> GREEN (on scene) -> RED (left after
+     * having been on scene). Pushes the update to Firebase if configured.
+     */
+    private fun updateResponderStatus(location: Location) {
+        val scene = preferencesManager.getDispatchSceneLocation() ?: return
+        val cad = preferencesManager.getActiveDispatchCad()
+        if (cad.isBlank()) return
+
+        val results = FloatArray(1)
+        Location.distanceBetween(location.latitude, location.longitude, scene.first, scene.second, results)
+        val distanceMeters = results[0]
+        val arrivalRadius = preferencesManager.getArrivalRadiusMeters()
+
+        val current = preferencesManager.getResponderStatus()
+        val newStatus = when {
+            distanceMeters <= arrivalRadius -> {
+                hasEverBeenOnScene = true
+                "GREEN"
+            }
+            hasEverBeenOnScene && distanceMeters > arrivalRadius * 3 -> "RED"
+            else -> if (current == "RED") "RED" else "BLUE"
+        }
+
+        if (newStatus != current) {
+            preferencesManager.setResponderStatus(newStatus)
+        }
+
+        // Push to Firebase (fire-and-forget)
+        val memberId = preferencesManager.getLoggedInMemberId()
+        if (memberId > 0) {
+            serviceScope.launch {
+                try {
+                    firebaseResponderRepository.updateStatus(
+                        cad = cad,
+                        memberId = memberId,
+                        status = newStatus,
+                        lat = location.latitude,
+                        lng = location.longitude
+                    )
+                } catch (_: Throwable) { /* ignore */ }
+            }
+        }
     }
 
     private fun updateCallLogMileage() {

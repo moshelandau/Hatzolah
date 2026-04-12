@@ -27,7 +27,17 @@ class PreferencesManager @Inject constructor(
         private const val KEY_DISPATCH_RAW = "active_dispatch_raw"
         private const val KEY_DISPATCH_UNITS = "active_dispatch_units"
         private const val KEY_DISPATCH_AGE = "active_dispatch_age"
+        private const val KEY_DISPATCH_CAD = "active_dispatch_cad"
+        private const val KEY_DISPATCH_ROOM = "active_dispatch_room"
+        private const val KEY_DISPATCH_SCENE_LAT = "active_dispatch_scene_lat"
+        private const val KEY_DISPATCH_SCENE_LNG = "active_dispatch_scene_lng"
         private const val KEY_DISPATCH_TIMESTAMP = "active_dispatch_timestamp"
+
+        // Arrival threshold — member considered "on scene" within this many metres
+        private const val KEY_ARRIVAL_RADIUS_METERS = "arrival_radius_meters"
+
+        // Current responder status (local): "" | BLUE | GREEN | RED
+        private const val KEY_RESPONDER_STATUS = "responder_status"
     }
 
     fun getDispatchNumber(): String = prefs.getString(KEY_DISPATCH_NUMBER, "") ?: ""
@@ -49,7 +59,15 @@ class PreferencesManager @Inject constructor(
     fun getVerificationCode(): String = prefs.getString(KEY_VERIFICATION_CODE, "") ?: ""
 
     // Active dispatch state - auto-expires after 30 minutes
-    fun setActiveDispatch(address: String, callType: String, rawMessage: String, units: String, age: String) {
+    fun setActiveDispatch(
+        address: String,
+        callType: String,
+        rawMessage: String,
+        units: String,
+        age: String,
+        cad: String = "",
+        room: String = ""
+    ) {
         synchronized(prefs) {
             prefs.edit()
                 .putBoolean(KEY_ACTIVE_DISPATCH, true)
@@ -58,10 +76,39 @@ class PreferencesManager @Inject constructor(
                 .putString(KEY_DISPATCH_RAW, rawMessage)
                 .putString(KEY_DISPATCH_UNITS, units)
                 .putString(KEY_DISPATCH_AGE, age)
+                .putString(KEY_DISPATCH_CAD, cad)
+                .putString(KEY_DISPATCH_ROOM, room)
                 .putLong(KEY_DISPATCH_TIMESTAMP, System.currentTimeMillis())
                 .apply()
         }
     }
+
+    fun getActiveDispatchCad(): String = prefs.getString(KEY_DISPATCH_CAD, "") ?: ""
+    fun getActiveDispatchUnits(): String = prefs.getString(KEY_DISPATCH_UNITS, "") ?: ""
+
+    // Scene (approximate dispatch location) — set after geocoding the dispatch address
+    fun setDispatchSceneLocation(lat: Double, lng: Double) {
+        prefs.edit()
+            .putFloat(KEY_DISPATCH_SCENE_LAT, lat.toFloat())
+            .putFloat(KEY_DISPATCH_SCENE_LNG, lng.toFloat())
+            .apply()
+    }
+
+    fun getDispatchSceneLocation(): Pair<Double, Double>? {
+        if (!prefs.contains(KEY_DISPATCH_SCENE_LAT) || !prefs.contains(KEY_DISPATCH_SCENE_LNG)) return null
+        val lat = prefs.getFloat(KEY_DISPATCH_SCENE_LAT, 0f).toDouble()
+        val lng = prefs.getFloat(KEY_DISPATCH_SCENE_LNG, 0f).toDouble()
+        if (lat == 0.0 && lng == 0.0) return null
+        return lat to lng
+    }
+
+    fun getArrivalRadiusMeters(): Int = prefs.getInt(KEY_ARRIVAL_RADIUS_METERS, 60)
+    fun setArrivalRadiusMeters(meters: Int) = prefs.edit().putInt(KEY_ARRIVAL_RADIUS_METERS, meters).apply()
+
+    // Responder status
+    fun getResponderStatus(): String = prefs.getString(KEY_RESPONDER_STATUS, "") ?: ""
+    fun setResponderStatus(status: String) = prefs.edit().putString(KEY_RESPONDER_STATUS, status).apply()
+    fun clearResponderStatus() = prefs.edit().remove(KEY_RESPONDER_STATUS).apply()
 
     fun hasActiveDispatch(): Boolean {
         if (!prefs.getBoolean(KEY_ACTIVE_DISPATCH, false)) return false
@@ -80,7 +127,9 @@ class PreferencesManager @Inject constructor(
         val callType: String,
         val rawMessage: String,
         val units: String,
-        val age: String
+        val age: String,
+        val cad: String = "",
+        val room: String = ""
     )
 
     fun getActiveDispatch(): ActiveDispatch? {
@@ -90,7 +139,9 @@ class PreferencesManager @Inject constructor(
             callType = prefs.getString(KEY_DISPATCH_CALL_TYPE, "") ?: "",
             rawMessage = prefs.getString(KEY_DISPATCH_RAW, "") ?: "",
             units = prefs.getString(KEY_DISPATCH_UNITS, "") ?: "",
-            age = prefs.getString(KEY_DISPATCH_AGE, "") ?: ""
+            age = prefs.getString(KEY_DISPATCH_AGE, "") ?: "",
+            cad = prefs.getString(KEY_DISPATCH_CAD, "") ?: "",
+            room = prefs.getString(KEY_DISPATCH_ROOM, "") ?: ""
         )
     }
 
@@ -102,8 +153,13 @@ class PreferencesManager @Inject constructor(
             .remove(KEY_DISPATCH_RAW)
             .remove(KEY_DISPATCH_UNITS)
             .remove(KEY_DISPATCH_AGE)
+            .remove(KEY_DISPATCH_CAD)
+            .remove(KEY_DISPATCH_ROOM)
+            .remove(KEY_DISPATCH_SCENE_LAT)
+            .remove(KEY_DISPATCH_SCENE_LNG)
             .remove(KEY_DISPATCH_TIMESTAMP)
             .apply()
+        clearResponderStatus()
     }
 
     fun clearSession() {

@@ -22,6 +22,7 @@ import kotlin.random.Random
 data class AdminUiState(
     val members: List<Member> = emptyList(),
     val hospitals: List<Hospital> = emptyList(),
+    val urgentCares: List<Hospital> = emptyList(),
     val dispatchNumber: String = "",
     val rmaHotline: String = "",
     val activeTab: Int = 0,
@@ -77,11 +78,20 @@ class AdminViewModel @Inject constructor(
         }
         viewModelScope.launch {
             try {
-                hospitalRepository.getAllHospitals().collect { hospitals ->
+                hospitalRepository.getByFacilityType(Hospital.FACILITY_HOSPITAL).collect { hospitals ->
                     _uiState.update { it.copy(hospitals = hospitals) }
                 }
             } catch (e: Exception) {
                 Log.e("AdminViewModel", "Error collecting hospitals from database", e)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                hospitalRepository.getByFacilityType(Hospital.FACILITY_URGENT_CARE).collect { urgentCares ->
+                    _uiState.update { it.copy(urgentCares = urgentCares) }
+                }
+            } catch (e: Exception) {
+                Log.e("AdminViewModel", "Error collecting urgent cares from database", e)
             }
         }
     }
@@ -106,7 +116,8 @@ class AdminViewModel @Inject constructor(
             callType = callType,
             rawMessage = rawMessage,
             units = unit,
-            age = age
+            age = age,
+            cad = cad
         )
     }
 
@@ -150,16 +161,23 @@ class AdminViewModel @Inject constructor(
         preferencesManager.setRmaHotline(_uiState.value.rmaHotline)
     }
 
-    fun addMember(name: String, phone: String, whatsapp: String, email: String) {
+    fun addMember(name: String, phone: String, whatsapp: String, email: String, unitNumber: String) {
         viewModelScope.launch {
             memberRepository.addMember(
                 Member(
                     name = name,
                     phoneNumber = phone,
                     whatsappContact = whatsapp,
-                    email = email
+                    email = email,
+                    unitNumber = unitNumber.trim().uppercase()
                 )
             )
+        }
+    }
+
+    fun updateMember(member: Member) {
+        viewModelScope.launch {
+            memberRepository.updateMember(member)
         }
     }
 
@@ -215,6 +233,33 @@ class AdminViewModel @Inject constructor(
     }
 
     fun deleteHospital(hospital: Hospital) {
+        viewModelScope.launch {
+            hospitalRepository.deleteHospital(hospital)
+        }
+    }
+
+    fun addUrgentCare(name: String, address: String, phone: String, contactPerson: String, notes: String) {
+        viewModelScope.launch {
+            hospitalRepository.addHospital(
+                Hospital(
+                    name = name,
+                    address = address,
+                    mainHotline = phone,
+                    departmentHotlines = if (contactPerson.isNotBlank()) "{\"Contact\":\"$contactPerson\"}" else "",
+                    additionalNotes = notes,
+                    facilityType = Hospital.FACILITY_URGENT_CARE
+                )
+            )
+        }
+    }
+
+    fun updateUrgentCare(hospital: Hospital) {
+        viewModelScope.launch {
+            hospitalRepository.updateHospital(hospital)
+        }
+    }
+
+    fun deleteUrgentCare(hospital: Hospital) {
         viewModelScope.launch {
             hospitalRepository.deleteHospital(hospital)
         }

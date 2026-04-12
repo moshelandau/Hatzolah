@@ -12,7 +12,11 @@ class HospitalRepository @Inject constructor(
 ) {
     fun getAllHospitals(): Flow<List<Hospital>> = hospitalDao.getAllHospitals()
 
+    fun getByFacilityType(facilityType: String): Flow<List<Hospital>> = hospitalDao.getByFacilityType(facilityType)
+
     fun searchHospitals(query: String): Flow<List<Hospital>> = hospitalDao.searchHospitals(query)
+
+    fun searchByFacilityType(query: String, facilityType: String): Flow<List<Hospital>> = hospitalDao.searchByFacilityType(query, facilityType)
 
     suspend fun getHospitalById(id: Long): Hospital? = hospitalDao.getHospitalById(id)
 

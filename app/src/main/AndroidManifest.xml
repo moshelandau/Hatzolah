@@ -15,6 +15,10 @@
     <!-- Phone Permissions for RMA quick-dial -->
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
+    <!-- Read device's own phone number for automatic login -->
+    <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <!-- Notification Permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

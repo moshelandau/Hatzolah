@@ -20,6 +20,8 @@ class MemberRepository @Inject constructor(
 
     suspend fun getMemberByPhone(phone: String): Member? = memberDao.getMemberByPhone(phone)
 
+    suspend fun getMemberByUnit(unit: String): Member? = memberDao.getMemberByUnit(unit)
+
     suspend fun addMember(member: Member): Long = memberDao.insert(member)
 
     suspend fun updateMember(member: Member) = memberDao.update(member)

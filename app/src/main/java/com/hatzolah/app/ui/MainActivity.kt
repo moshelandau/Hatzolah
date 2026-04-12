@@ -91,7 +91,9 @@ class MainActivity : ComponentActivity() {
                     active.callType,
                     active.rawMessage,
                     active.units,
-                    active.age
+                    active.age,
+                    active.room,
+                    active.cad
                 )
                 startActivity(intent)
             } catch (_: Throwable) {}
