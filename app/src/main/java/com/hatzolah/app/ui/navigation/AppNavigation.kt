@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.hatzolah.app.ui.admin.AdminScreen
 import com.hatzolah.app.ui.analytics.AnalyticsScreen
+import com.hatzolah.app.ui.calendar.CalendarScreen
 import com.hatzolah.app.ui.callhistory.CallDocumentationScreen
 import com.hatzolah.app.ui.callhistory.CallHistoryScreen
 import com.hatzolah.app.ui.dashboard.DashboardScreen
@@ -41,6 +42,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Supplies : Screen("supplies", "Supplies", Icons.Default.Inventory)
     data object Rma : Screen("rma", "RMA", Icons.Default.Call)
     data object Protocols : Screen("protocols", "Protocols", Icons.Default.MedicalServices)
+    data object Calendar : Screen("calendar", "Calendar", Icons.Default.CalendarMonth)
     data object Admin : Screen("admin", "Admin", Icons.Default.AdminPanelSettings)
     data object CallDocumentation : Screen("document/{callId}", "Document", Icons.Default.Edit)
 }
@@ -59,6 +61,7 @@ val drawerItems = listOf(
     Screen.Residents,
     Screen.Members,
     Screen.CallHistory,
+    Screen.Calendar,
     Screen.Supplies,
     Screen.Analytics,
     Screen.Rma,
@@ -118,6 +121,13 @@ fun AppNavigation() {
                 ),
                 actions = {
                     IconButton(onClick = {
+                        navController.navigate(Screen.Calendar.route) {
+                            launchSingleTop = true
+                        }
+                    }) {
+                        Icon(Icons.Default.CalendarMonth, contentDescription = "Calendar")
+                    }
+                    IconButton(onClick = {
                         navController.navigate(Screen.Supplies.route) {
                             launchSingleTop = true
                         }
@@ -175,6 +185,7 @@ fun AppNavigation() {
             }
             composable(Screen.Protocols.route) { ProtocolsScreen() }
             composable(Screen.Supplies.route) { SuppliesScreen() }
+            composable(Screen.Calendar.route) { CalendarScreen() }
             composable(Screen.Admin.route) { AdminScreen() }
             composable(
                 route = "document/{callId}",

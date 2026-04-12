@@ -35,6 +35,9 @@ class CallLogRepository @Inject constructor(
     fun getPersonalCallsThisMonth(memberId: Long, startOfMonth: Long, endOfMonth: Long): Flow<Int> =
         callLogDao.getPersonalCallsThisMonth(memberId, startOfMonth, endOfMonth)
 
+    fun getCallLogsByDateRange(startMs: Long, endMs: Long): Flow<List<CallLog>> =
+        callLogDao.getCallLogsByDateRange(startMs, endMs)
+
     suspend fun getCallLogById(id: Long): CallLog? = callLogDao.getCallLogById(id)
 
     suspend fun addCallLog(callLog: CallLog): Long = callLogDao.insert(callLog)
