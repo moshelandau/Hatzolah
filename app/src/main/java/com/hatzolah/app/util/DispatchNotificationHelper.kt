@@ -17,6 +17,7 @@ import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.R
 import com.hatzolah.app.data.database.entity.CallLog
 import com.hatzolah.app.data.repository.CallLogRepository
+import com.hatzolah.app.service.LocationTrackingService
 import com.hatzolah.app.service.SmsParser
 import com.hatzolah.app.ui.DispatchAlertActivity
 import kotlinx.coroutines.CoroutineScope
@@ -50,26 +51,66 @@ class DispatchNotificationHelper @Inject constructor(
         rawMessage: String = "",
         units: String = "",
         age: String = "",
-        room: String = ""
+        room: String = "",
+        cad: String = ""
     ) {
-        // Persist the dispatch so it can be re-shown when user unfolds/unlocks
-        preferencesManager.setActiveDispatch(address, callType, rawMessage, units, age)
+        // Detect same-CAD update: if the incoming dispatch has the same CAD as the
+        // currently active dispatch but NEW units were added, we want to re-alert
+        // with the new units highlighted rather than treating it as a fresh call.
+        val existingCad = preferencesManager.getActiveDispatchCad()
+        val isSameCallUpdate = cad.isNotBlank() && existingCad == cad
+        val previousUnits = if (isSameCallUpdate) {
+            com.hatzolah.app.service.UnitClassifier.splitUnits(preferencesManager.getActiveDispatchUnits()).toSet()
+        } else emptySet()
+        val newUnits = com.hatzolah.app.service.UnitClassifier.splitUnits(units)
+            .filter { it !in previousUnits }
 
-        // Save to call history - every dispatch creates a call log entry
-        dbScope.launch {
-            try {
-                val memberId = preferencesManager.getLoggedInMemberId()
-                callLogRepository.addCallLog(
-                    CallLog(
-                        memberId = memberId,
-                        date = System.currentTimeMillis(),
-                        dispatchAddress = address,
-                        outcome = callType,
-                        medicalNotes = rawMessage,
-                        isDocumented = false
+        // Persist the dispatch so it can be re-shown when user unfolds/unlocks
+        preferencesManager.setActiveDispatch(address, callType, rawMessage, units, age, cad, room)
+
+        // Save to call history - only for brand-new dispatches (not same-CAD updates)
+        if (!isSameCallUpdate) {
+            preferencesManager.setResponderStatus("BLUE")
+            dbScope.launch {
+                try {
+                    val memberId = preferencesManager.getLoggedInMemberId()
+                    val callLogId = callLogRepository.addCallLog(
+                        CallLog(
+                            memberId = memberId,
+                            date = System.currentTimeMillis(),
+                            dispatchAddress = address,
+                            outcome = callType,
+                            medicalNotes = rawMessage,
+                            isDocumented = false
+                        )
                     )
-                )
-            } catch (_: Throwable) { /* don't crash on DB error */ }
+                    // Start the location tracking service so responder status
+                    // (BLUE/GREEN/RED) updates as the member moves toward the scene.
+                    try {
+                        val trackIntent = Intent(context, LocationTrackingService::class.java).apply {
+                            putExtra(LocationTrackingService.EXTRA_CALL_LOG_ID, callLogId)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(trackIntent)
+                        } else {
+                            context.startService(trackIntent)
+                        }
+                    } catch (_: Throwable) { /* foreground start may be blocked */ }
+                } catch (_: Throwable) { /* don't crash on DB error */ }
+            }
+        }
+
+        // Geocode the dispatch address in the background and store the scene
+        // location so LocationTrackingService can compute distance-to-scene.
+        if (address.isNotBlank()) {
+            dbScope.launch {
+                try {
+                    val latLng = com.hatzolah.app.util.AddressGeocoder.geocode(context, address)
+                    if (latLng != null) {
+                        preferencesManager.setDispatchSceneLocation(latLng.latitude, latLng.longitude)
+                    }
+                } catch (_: Throwable) { /* ignore */ }
+            }
         }
 
         // Unique request codes per dispatch - bounded integers (Bugs #3, #22)
@@ -89,7 +130,7 @@ class DispatchNotificationHelper @Inject constructor(
 
         try {
             val alertIntent = DispatchAlertActivity.createIntent(
-                context, address, callType, rawMessage, units, age, room
+                context, address, callType, rawMessage, units, age, room, cad
             )
             val alertPendingIntent = PendingIntent.getActivity(
                 context, alertRequestCode, alertIntent,
@@ -106,13 +147,23 @@ class DispatchNotificationHelper @Inject constructor(
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-            val title = if (callType.isNotBlank()) "DISPATCH: ${callType.uppercase()}" else "DISPATCH CALL"
+            val title = if (isSameCallUpdate && newUnits.isNotEmpty()) {
+                "UPDATE: ${newUnits.joinToString(", ")} added"
+            } else if (callType.isNotBlank()) "DISPATCH: ${callType.uppercase()}" else "DISPATCH CALL"
+
+            val bigTextBody = buildString {
+                append(address)
+                if (callType.isNotBlank()) append("\n").append(callType)
+                if (units.isNotBlank()) append("\nUnits: ").append(units)
+                if (isSameCallUpdate && newUnits.isNotEmpty()) append("\nNew: ").append(newUnits.joinToString(", "))
+                append("\n").append(rawMessage)
+            }
 
             val notification = NotificationCompat.Builder(context, HatzolahApp.DISPATCH_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(title)
                 .setContentText(address)
-                .setStyle(NotificationCompat.BigTextStyle().bigText("$address\n$callType\n$rawMessage"))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(bigTextBody))
                 .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

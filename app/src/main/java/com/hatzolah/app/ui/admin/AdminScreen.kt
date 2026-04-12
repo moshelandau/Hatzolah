@@ -25,6 +25,7 @@ fun AdminScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddMemberDialog by remember { mutableStateOf(false) }
+    var editingMember by remember { mutableStateOf<com.hatzolah.app.data.database.entity.Member?>(null) }
     var showAddHospitalDialog by remember { mutableStateOf(false) }
     var editingHospital by remember { mutableStateOf<com.hatzolah.app.data.database.entity.Hospital?>(null) }
     var showAddUrgentCareDialog by remember { mutableStateOf(false) }
@@ -61,7 +62,11 @@ fun AdminScreen(
 
         when (uiState.activeTab) {
             0 -> SettingsTab(uiState, viewModel)
-            1 -> MembersTab(uiState, viewModel, onAddClick = { showAddMemberDialog = true })
+            1 -> MembersTab(
+                uiState, viewModel,
+                onAddClick = { showAddMemberDialog = true },
+                onEditClick = { member -> editingMember = member }
+            )
             2 -> HospitalsTab(
                 uiState, viewModel,
                 onAddClick = { showAddHospitalDialog = true },
@@ -78,9 +83,20 @@ fun AdminScreen(
     if (showAddMemberDialog) {
         AddMemberDialog(
             onDismiss = { showAddMemberDialog = false },
-            onAdd = { name, phone, whatsapp, email ->
-                viewModel.addMember(name, phone, whatsapp, email)
+            onAdd = { name, phone, whatsapp, email, unitNumber ->
+                viewModel.addMember(name, phone, whatsapp, email, unitNumber)
                 showAddMemberDialog = false
+            }
+        )
+    }
+
+    editingMember?.let { member ->
+        EditMemberDialog(
+            member = member,
+            onDismiss = { editingMember = null },
+            onSave = { updated ->
+                viewModel.updateMember(updated)
+                editingMember = null
             }
         )
     }
@@ -314,7 +330,8 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
 private fun MembersTab(
     uiState: AdminUiState,
     viewModel: AdminViewModel,
-    onAddClick: () -> Unit
+    onAddClick: () -> Unit,
+    onEditClick: (com.hatzolah.app.data.database.entity.Member) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -351,7 +368,23 @@ private fun MembersTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = member.name, style = MaterialTheme.typography.titleSmall)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = member.name, style = MaterialTheme.typography.titleSmall)
+                                if (member.unitNumber.isNotBlank()) {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            text = member.unitNumber,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
                             Text(text = member.phoneNumber, style = MaterialTheme.typography.bodySmall)
                             if (member.whatsappContact.isNotBlank()) {
                                 Text(text = "WhatsApp: ${member.whatsappContact}", style = MaterialTheme.typography.bodySmall)
@@ -366,6 +399,13 @@ private fun MembersTab(
                                     color = MaterialTheme.colorScheme.primary
                                 )
                             }
+                        }
+                        IconButton(onClick = { onEditClick(member) }) {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = "Edit",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                         IconButton(onClick = { viewModel.deleteMember(member) }) {
                             Icon(
@@ -459,12 +499,13 @@ private fun HospitalsTab(
 @Composable
 fun AddMemberDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, String, String, String) -> Unit
+    onAdd: (String, String, String, String, String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var whatsapp by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var unitNumber by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -485,6 +526,13 @@ fun AddMemberDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
                 )
                 OutlinedTextField(
+                    value = unitNumber,
+                    onValueChange = { unitNumber = it },
+                    label = { Text("Unit Number (e.g. KY85)") },
+                    placeholder = { Text("KY##") },
+                    singleLine = true
+                )
+                OutlinedTextField(
                     value = whatsapp,
                     onValueChange = { whatsapp = it },
                     label = { Text("WhatsApp (optional)") },
@@ -502,10 +550,86 @@ fun AddMemberDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onAdd(name, phone, whatsapp, email) },
+                onClick = { onAdd(name, phone, whatsapp, email, unitNumber) },
                 enabled = name.isNotBlank() && phone.isNotBlank()
             ) {
                 Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun EditMemberDialog(
+    member: com.hatzolah.app.data.database.entity.Member,
+    onDismiss: () -> Unit,
+    onSave: (com.hatzolah.app.data.database.entity.Member) -> Unit
+) {
+    var name by remember { mutableStateOf(member.name) }
+    var phone by remember { mutableStateOf(member.phoneNumber) }
+    var whatsapp by remember { mutableStateOf(member.whatsappContact) }
+    var email by remember { mutableStateOf(member.email) }
+    var unitNumber by remember { mutableStateOf(member.unitNumber) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Member") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Name") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Phone Number") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = unitNumber,
+                    onValueChange = { unitNumber = it },
+                    label = { Text("Unit Number (e.g. KY85)") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = whatsapp,
+                    onValueChange = { whatsapp = it },
+                    label = { Text("WhatsApp (optional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email (optional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        member.copy(
+                            name = name,
+                            phoneNumber = phone,
+                            whatsappContact = whatsapp,
+                            email = email,
+                            unitNumber = unitNumber.trim().uppercase()
+                        )
+                    )
+                },
+                enabled = name.isNotBlank() && phone.isNotBlank()
+            ) {
+                Text("Save")
             }
         },
         dismissButton = {

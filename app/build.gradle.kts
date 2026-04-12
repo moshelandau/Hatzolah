@@ -6,6 +6,13 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+// Apply the google-services plugin only if google-services.json is present.
+// This lets the project build without Firebase configured; Firebase features
+// will be disabled at runtime until the user drops in their own config file.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.hatzolah.app"
     compileSdk = 34
@@ -81,6 +88,11 @@ dependencies {
     // Location Services
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
+
+    // Firebase (real-time responder sync) - uses google-services.json if present
+    implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
 
     // DataStore for preferences
     implementation("androidx.datastore:datastore-preferences:1.0.0")

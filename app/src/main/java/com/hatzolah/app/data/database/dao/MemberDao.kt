@@ -16,6 +16,9 @@ interface MemberDao {
     @Query("SELECT * FROM members WHERE phoneNumber = :phone LIMIT 1")
     suspend fun getMemberByPhone(phone: String): Member?
 
+    @Query("SELECT * FROM members WHERE unitNumber = :unit COLLATE NOCASE LIMIT 1")
+    suspend fun getMemberByUnit(unit: String): Member?
+
     @Query("SELECT * FROM members WHERE isVerified = 1 ORDER BY name ASC")
     fun getVerifiedMembers(): Flow<List<Member>>
 

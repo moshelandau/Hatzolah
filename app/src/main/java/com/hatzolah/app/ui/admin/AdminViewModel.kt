@@ -116,7 +116,8 @@ class AdminViewModel @Inject constructor(
             callType = callType,
             rawMessage = rawMessage,
             units = unit,
-            age = age
+            age = age,
+            cad = cad
         )
     }
 
@@ -160,16 +161,23 @@ class AdminViewModel @Inject constructor(
         preferencesManager.setRmaHotline(_uiState.value.rmaHotline)
     }
 
-    fun addMember(name: String, phone: String, whatsapp: String, email: String) {
+    fun addMember(name: String, phone: String, whatsapp: String, email: String, unitNumber: String) {
         viewModelScope.launch {
             memberRepository.addMember(
                 Member(
                     name = name,
                     phoneNumber = phone,
                     whatsappContact = whatsapp,
-                    email = email
+                    email = email,
+                    unitNumber = unitNumber.trim().uppercase()
                 )
             )
+        }
+    }
+
+    fun updateMember(member: Member) {
+        viewModelScope.launch {
+            memberRepository.updateMember(member)
         }
     }
 

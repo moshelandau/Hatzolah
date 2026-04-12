@@ -93,7 +93,8 @@ class DispatchNotificationListener : NotificationListenerService() {
                     rawMessage = messageBody,
                     units = parsed.units,
                     age = parsed.age,
-                    room = parsed.room
+                    room = parsed.room,
+                    cad = parsed.cad
                 )
             } catch (_: Throwable) { /* don't crash the listener */ }
         }
