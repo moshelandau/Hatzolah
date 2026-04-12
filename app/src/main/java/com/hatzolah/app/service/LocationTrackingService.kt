@@ -14,7 +14,6 @@ import com.google.android.gms.location.*
 import com.hatzolah.app.HatzolahApp
 import com.hatzolah.app.data.repository.CallLogRepository
 import com.hatzolah.app.data.repository.FirebaseResponderRepository
-import com.hatzolah.app.data.repository.MemberRepository
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +31,6 @@ import javax.inject.Inject
 class LocationTrackingService : Service() {
 
     @Inject lateinit var callLogRepository: CallLogRepository
-    @Inject lateinit var memberRepository: MemberRepository
     @Inject lateinit var firebaseResponderRepository: FirebaseResponderRepository
     @Inject lateinit var preferencesManager: PreferencesManager
 
