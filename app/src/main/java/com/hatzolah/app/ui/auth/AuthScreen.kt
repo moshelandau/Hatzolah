@@ -2,22 +2,30 @@ package com.hatzolah.app.ui.auth
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.hatzolah.app.util.DevicePhoneUtil
 
@@ -30,39 +38,30 @@ fun AuthScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    LaunchedEffect(uiState.isAuthenticated) {
-        if (uiState.isAuthenticated) onAuthSuccess()
+    LaunchedEffect(uiState.step) {
+        if (uiState.step == AuthStep.AUTHENTICATED) onAuthSuccess()
     }
 
-    // Permission launcher to request READ_PHONE_NUMBERS at runtime
+    // Runtime permission launcher. When the system dialog closes we read the
+    // phone number (if granted) and hand it to the view model.
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) {
-            val detected = DevicePhoneUtil.getDevicePhoneNumber(context)
-            viewModel.onDevicePhoneDetected(detected)
-        } else {
-            // User denied - fall back to manual entry
-            viewModel.onDevicePhoneDetected(null)
+        val detected = if (granted) DevicePhoneUtil.getDevicePhoneNumber(context) else null
+        viewModel.onPermissionResult(granted, detected)
+    }
+
+    // If permission is already granted when we arrive at NEED_PERMISSION,
+    // skip the prompt entirely and move straight into DETECTING.
+    LaunchedEffect(uiState.step) {
+        if (uiState.step == AuthStep.NEED_PERMISSION &&
+            DevicePhoneUtil.hasPermission(context)
+        ) {
+            viewModel.onDevicePhoneAlreadyAvailable(DevicePhoneUtil.getDevicePhoneNumber(context))
         }
     }
 
-    // On first launch (not first-time setup, not already authenticated, not already in manual mode),
-    // try to auto-detect the device's phone number.
-    LaunchedEffect(uiState.isFirstTimeSetup) {
-        if (!uiState.isFirstTimeSetup && !uiState.isAuthenticated && !uiState.manualEntryMode && uiState.detectedPhoneNumber == null) {
-            if (DevicePhoneUtil.hasPermission(context)) {
-                val detected = DevicePhoneUtil.getDevicePhoneNumber(context)
-                viewModel.onDevicePhoneDetected(detected)
-            } else {
-                permissionLauncher.launch(DevicePhoneUtil.requiredPermission())
-            }
-        }
-    }
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.primary
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.primary) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -96,13 +95,19 @@ fun AuthScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-
-                    if (uiState.isFirstTimeSetup) {
-                        FirstTimeSetupContent(uiState, viewModel)
-                    } else if (uiState.manualEntryMode) {
-                        ManualPhoneEntryContent(uiState, viewModel)
-                    } else {
-                        AutoDetectContent(uiState)
+                    when (uiState.step) {
+                        AuthStep.CHECKING -> LoadingContent("Loading…")
+                        AuthStep.FIRST_TIME_SETUP -> FirstTimeSetupContent(uiState, viewModel)
+                        AuthStep.NEED_PERMISSION -> NeedPermissionContent(
+                            onAllow = {
+                                permissionLauncher.launch(DevicePhoneUtil.requiredPermission())
+                            },
+                            onManual = viewModel::switchToManualEntry
+                        )
+                        AuthStep.DETECTING -> DetectingContent()
+                        AuthStep.CONFIRM_IDENTITY -> ConfirmIdentityContent(uiState, viewModel)
+                        AuthStep.MANUAL_ENTRY -> ManualPhoneEntryContent(uiState, viewModel)
+                        AuthStep.AUTHENTICATED -> LoadingContent("Signing you in…")
                     }
 
                     uiState.error?.let { error ->
@@ -121,6 +126,192 @@ fun AuthScreen(
 }
 
 @Composable
+private fun LoadingContent(message: String) {
+    CircularProgressIndicator()
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(message, style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable
+private fun NeedPermissionContent(
+    onAllow: () -> Unit,
+    onManual: () -> Unit
+) {
+    Icon(
+        imageVector = Icons.Default.LockOpen,
+        contentDescription = null,
+        modifier = Modifier.size(48.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = "Sign In With Your Phone",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(
+        text = "To sign you in automatically, Hatzolah needs permission to read your phone number from this device. We only use it to match you against the member list — nothing is sent anywhere.",
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(20.dp))
+    Button(onClick = onAllow, modifier = Modifier.fillMaxWidth()) {
+        Text("Allow Access")
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    TextButton(onClick = onManual) {
+        Text("Enter number manually")
+    }
+}
+
+@Composable
+private fun DetectingContent() {
+    Icon(
+        imageVector = Icons.Default.SimCard,
+        contentDescription = null,
+        modifier = Modifier.size(48.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(
+        text = "Retrieving your phone number…",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(
+        text = "Reading your SIM to identify you.",
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(modifier = Modifier.height(20.dp))
+    CircularProgressIndicator()
+}
+
+@Composable
+private fun ConfirmIdentityContent(
+    uiState: AuthUiState,
+    viewModel: AuthViewModel
+) {
+    val member = uiState.matchedMember
+
+    // Big green check circle so the user sees something succeeded.
+    Box(
+        modifier = Modifier
+            .size(60.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF2E7D32).copy(alpha = 0.12f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(44.dp),
+            tint = Color(0xFF2E7D32)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Text(
+        text = "We found your number",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold
+    )
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    // The detected phone number, formatted large.
+    Text(
+        text = formatPhoneNumber(uiState.detectedPhoneNumber ?: uiState.phoneNumber),
+        style = MaterialTheme.typography.headlineSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary
+    )
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    Divider()
+
+    Spacer(modifier = Modifier.height(16.dp))
+
+    // Matched member card
+    if (member != null) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = "Signed in as",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = member.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Editable unit number so the user can confirm or correct it.
+        OutlinedTextField(
+            value = uiState.unitNumber,
+            onValueChange = viewModel::onUnitChanged,
+            label = { Text("Unit Number") },
+            placeholder = { Text("e.g. KY85") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            supportingText = {
+                Text(
+                    text = if (member.unitNumber.isBlank()) "Enter your unit number to continue"
+                    else "Confirm your unit number or edit it below",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        )
+    }
+
+    Spacer(modifier = Modifier.height(20.dp))
+
+    Button(
+        onClick = viewModel::confirmAndSignIn,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !uiState.isLoading && uiState.unitNumber.isNotBlank()
+    ) {
+        if (uiState.isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
+            Text("Sign In")
+        }
+    }
+
+    Spacer(modifier = Modifier.height(8.dp))
+
+    TextButton(onClick = viewModel::switchToManualEntry) {
+        Text("This isn't me")
+    }
+}
+
+@Composable
 private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel) {
     Icon(
         imageVector = Icons.Default.AdminPanelSettings,
@@ -128,24 +319,20 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
         modifier = Modifier.size(48.dp),
         tint = MaterialTheme.colorScheme.primary
     )
-
     Spacer(modifier = Modifier.height(8.dp))
-
     Text(
         text = "First-Time Setup",
         style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center
     )
-
     Spacer(modifier = Modifier.height(4.dp))
-
     Text(
         text = "No members registered yet. Create your admin account to get started.",
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-
     Spacer(modifier = Modifier.height(24.dp))
 
     OutlinedTextField(
@@ -155,9 +342,7 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
-
     Spacer(modifier = Modifier.height(12.dp))
-
     OutlinedTextField(
         value = uiState.phoneNumber,
         onValueChange = viewModel::onPhoneChanged,
@@ -166,9 +351,16 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
-
+    Spacer(modifier = Modifier.height(12.dp))
+    OutlinedTextField(
+        value = uiState.unitNumber,
+        onValueChange = viewModel::onUnitChanged,
+        label = { Text("Unit Number") },
+        placeholder = { Text("e.g. KY85") },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true
+    )
     Spacer(modifier = Modifier.height(20.dp))
-
     Button(
         onClick = viewModel::setupAdmin,
         modifier = Modifier.fillMaxWidth(),
@@ -186,56 +378,28 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
 }
 
 @Composable
-private fun AutoDetectContent(uiState: AuthUiState) {
+private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
     Icon(
         imageVector = Icons.Default.PhoneAndroid,
         contentDescription = null,
         modifier = Modifier.size(48.dp),
         tint = MaterialTheme.colorScheme.primary
     )
-
     Spacer(modifier = Modifier.height(8.dp))
-
-    Text(
-        text = "Detecting your phone...",
-        style = MaterialTheme.typography.titleMedium,
-        textAlign = TextAlign.Center
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Text(
-        text = "The app is reading your phone number from your device settings to sign you in automatically.",
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    Spacer(modifier = Modifier.height(20.dp))
-
-    if (uiState.isLoading) {
-        CircularProgressIndicator()
-    }
-}
-
-@Composable
-private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
     Text(
         text = "Enter Your Phone Number",
         style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center
     )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
+    Spacer(modifier = Modifier.height(6.dp))
     Text(
-        text = "We couldn't read your phone number automatically. Please enter it manually to sign in.",
+        text = "We couldn't read your number automatically. Please type it in manually.",
         style = MaterialTheme.typography.bodyMedium,
         textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-
-    Spacer(modifier = Modifier.height(24.dp))
+    Spacer(modifier = Modifier.height(20.dp))
 
     OutlinedTextField(
         value = uiState.phoneNumber,
@@ -245,7 +409,6 @@ private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewMod
         modifier = Modifier.fillMaxWidth(),
         singleLine = true
     )
-
     Spacer(modifier = Modifier.height(16.dp))
 
     Button(
@@ -259,7 +422,15 @@ private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewMod
                 color = MaterialTheme.colorScheme.onPrimary
             )
         } else {
-            Text("Sign In")
+            Text("Continue")
         }
     }
+}
+
+/** Render a 10-digit phone number as (XXX) XXX-XXXX for the confirmation screen. */
+private fun formatPhoneNumber(raw: String): String {
+    val digits = raw.filter { it.isDigit() }.takeLast(10)
+    return if (digits.length == 10) {
+        "(${digits.substring(0, 3)}) ${digits.substring(3, 6)}-${digits.substring(6)}"
+    } else raw
 }
