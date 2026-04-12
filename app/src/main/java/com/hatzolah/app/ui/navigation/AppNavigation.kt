@@ -52,7 +52,7 @@ val bottomNavItems = listOf(
     Screen.Hospitals,
     Screen.Residents,
     Screen.CallHistory,
-    Screen.Analytics
+    Screen.Calendar
 )
 
 val drawerItems = listOf(
@@ -76,6 +76,21 @@ fun AppNavigation() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
+    // Single helper used by both the bottom nav and the top-bar icons so every
+    // top-level destination is popped back to Dashboard before navigating.
+    // This keeps the back stack from growing unbounded when the user flips
+    // between Admin / Calendar / Hospitals / etc. via the top bar, which is
+    // what caused the "Home button does nothing after opening Admin" bug.
+    val navigateTopLevel: (String) -> Unit = { route ->
+        if (currentRoute != route) {
+            navController.navigate(route) {
+                popUpTo(Screen.Dashboard.route) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -87,15 +102,7 @@ fun AppNavigation() {
                         icon = { Icon(screen.icon, contentDescription = screen.title) },
                         label = { Text(screen.title, fontSize = 11.sp) },
                         selected = currentRoute == screen.route,
-                        onClick = {
-                            if (currentRoute != screen.route) {
-                                navController.navigate(screen.route) {
-                                    popUpTo(Screen.Dashboard.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
+                        onClick = { navigateTopLevel(screen.route) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.primary,
                             selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -120,39 +127,19 @@ fun AppNavigation() {
                     actionIconContentColor = Color.White
                 ),
                 actions = {
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Calendar.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = "Calendar")
+                    IconButton(onClick = { navigateTopLevel(Screen.Analytics.route) }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "Stats")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Supplies.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Supplies.route) }) {
                         Icon(Icons.Default.Inventory, contentDescription = "Supplies")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Rma.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Rma.route) }) {
                         Icon(Icons.Default.Call, contentDescription = "RMA")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Protocols.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Protocols.route) }) {
                         Icon(Icons.Default.MedicalServices, contentDescription = "Protocols")
                     }
-                    IconButton(onClick = {
-                        navController.navigate(Screen.Admin.route) {
-                            launchSingleTop = true
-                        }
-                    }) {
+                    IconButton(onClick = { navigateTopLevel(Screen.Admin.route) }) {
                         Icon(Icons.Default.Settings, contentDescription = "Admin")
                     }
                 }
