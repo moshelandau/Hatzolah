@@ -7,6 +7,7 @@ import com.hatzolah.app.data.repository.MemberRepository
 import com.hatzolah.app.util.DevicePhoneUtil
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,14 +16,32 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Explicit steps of the auth flow. AuthScreen renders different UI for each.
+ *
+ * Typical path: CHECKING -> NEED_PERMISSION -> DETECTING -> CONFIRM_IDENTITY
+ *              -> AUTHENTICATED
+ *
+ * Fallback path: CHECKING -> NEED_PERMISSION -> MANUAL_ENTRY -> AUTHENTICATED
+ */
+enum class AuthStep {
+    CHECKING,          // initial DB lookup (first-time setup? auto-login?)
+    FIRST_TIME_SETUP,  // no members exist yet — create admin
+    NEED_PERMISSION,   // READ_PHONE_NUMBERS not granted — show "grant permission" UI
+    DETECTING,         // permission granted, reading the SIM line number
+    CONFIRM_IDENTITY,  // we have a number + matched member, user confirms/edits unit
+    MANUAL_ENTRY,      // detection failed / unregistered / user picked manual
+    AUTHENTICATED
+}
+
 data class AuthUiState(
+    val step: AuthStep = AuthStep.CHECKING,
     val phoneNumber: String = "",
     val name: String = "",
-    val isLoading: Boolean = false,
-    val isAuthenticated: Boolean = false,
-    val isFirstTimeSetup: Boolean = false,
+    val unitNumber: String = "",
     val detectedPhoneNumber: String? = null,
-    val manualEntryMode: Boolean = false,
+    val matchedMember: Member? = null,
+    val isLoading: Boolean = false,
     val error: String? = null
 )
 
@@ -44,18 +63,15 @@ class AuthViewModel @Inject constructor(
             try {
                 val members = memberRepository.getAllMembers().first()
                 if (members.isEmpty()) {
-                    _uiState.update { it.copy(isFirstTimeSetup = true) }
-                } else if (!preferencesManager.isLoggedIn()) {
-                    // Auto-login the first admin member if no one is logged in yet
-                    val admin = members.firstOrNull { it.isAdmin }
-                    if (admin != null) {
-                        preferencesManager.setLoggedInMemberId(admin.id)
-                        preferencesManager.setLoggedIn(true)
-                        _uiState.update { it.copy(isAuthenticated = true) }
-                    }
+                    _uiState.update { it.copy(step = AuthStep.FIRST_TIME_SETUP) }
+                } else if (preferencesManager.isLoggedIn()) {
+                    _uiState.update { it.copy(step = AuthStep.AUTHENTICATED) }
+                } else {
+                    // Members exist but nobody is logged in — start the auto-detect flow.
+                    // AuthScreen will move us to DETECTING once it checks permission.
+                    _uiState.update { it.copy(step = AuthStep.NEED_PERMISSION) }
                 }
             } catch (e: Throwable) {
-                // Don't flip to first-time setup on a transient DB error - show error instead
                 _uiState.update {
                     it.copy(error = "Unable to load members. Please restart the app.")
                 }
@@ -71,81 +87,114 @@ class AuthViewModel @Inject constructor(
         _uiState.update { it.copy(name = name, error = null) }
     }
 
+    fun onUnitChanged(unit: String) {
+        _uiState.update { it.copy(unitNumber = unit.uppercase(), error = null) }
+    }
+
+    /** User granted/denied permission in the system dialog. */
+    fun onPermissionResult(granted: Boolean, detectedPhone: String?) {
+        if (!granted) {
+            _uiState.update {
+                it.copy(
+                    step = AuthStep.MANUAL_ENTRY,
+                    error = "Permission denied. Please enter your phone number manually."
+                )
+            }
+            return
+        }
+        // Show the "retrieving" state briefly, then try to match.
+        _uiState.update { it.copy(step = AuthStep.DETECTING, isLoading = true, error = null) }
+        viewModelScope.launch {
+            // Tiny artificial delay so users actually see the "Retrieving your number..."
+            // screen instead of it flashing past.
+            delay(600)
+            resolveDetectedPhone(detectedPhone)
+        }
+    }
+
+    /** Called from AuthScreen when permission was already granted on launch. */
+    fun onDevicePhoneAlreadyAvailable(detectedPhone: String?) {
+        _uiState.update { it.copy(step = AuthStep.DETECTING, isLoading = true, error = null) }
+        viewModelScope.launch {
+            delay(600)
+            resolveDetectedPhone(detectedPhone)
+        }
+    }
+
+    private suspend fun resolveDetectedPhone(detectedPhone: String?) {
+        if (detectedPhone.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(
+                    step = AuthStep.MANUAL_ENTRY,
+                    isLoading = false,
+                    detectedPhoneNumber = null,
+                    error = "We couldn't read your phone number from this SIM. Please enter it manually."
+                )
+            }
+            return
+        }
+
+        val normalized = DevicePhoneUtil.normalize(detectedPhone)
+        val member = memberRepository.getMemberByPhone(normalized)
+        if (member == null) {
+            _uiState.update {
+                it.copy(
+                    step = AuthStep.MANUAL_ENTRY,
+                    isLoading = false,
+                    detectedPhoneNumber = detectedPhone,
+                    phoneNumber = normalized,
+                    error = "The phone $detectedPhone is not registered. Ask your admin to add you, or enter a different number."
+                )
+            }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                step = AuthStep.CONFIRM_IDENTITY,
+                isLoading = false,
+                detectedPhoneNumber = detectedPhone,
+                matchedMember = member,
+                unitNumber = member.unitNumber
+            )
+        }
+    }
+
     /**
-     * First-time setup: creates the admin account and logs in directly.
+     * User confirmed their identity on the CONFIRM_IDENTITY screen. If they
+     * edited the unit number, update it on the member row before signing in.
      */
-    fun setupAdmin() {
+    fun confirmAndSignIn() {
+        val member = _uiState.value.matchedMember ?: return
+        val editedUnit = _uiState.value.unitNumber.trim().uppercase()
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val name = _uiState.value.name.trim()
-            val phone = _uiState.value.phoneNumber.trim()
-
-            if (name.isBlank() || phone.isBlank()) {
-                _uiState.update { it.copy(isLoading = false, error = "Name and phone are required") }
-                return@launch
+            try {
+                if (editedUnit != member.unitNumber) {
+                    memberRepository.updateMember(member.copy(unitNumber = editedUnit))
+                }
+                memberRepository.verifyMember(member.id)
+                preferencesManager.setLoggedInMemberId(member.id)
+                preferencesManager.setLoggedIn(true)
+                _uiState.update { it.copy(step = AuthStep.AUTHENTICATED, isLoading = false) }
+            } catch (e: Throwable) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = "Could not sign in. Please try again.")
+                }
             }
+        }
+    }
 
-            val memberId = memberRepository.addMember(
-                Member(
-                    name = name,
-                    phoneNumber = phone,
-                    isVerified = true,
-                    isAdmin = true
-                )
-            )
-
-            preferencesManager.setLoggedInMemberId(memberId)
-            preferencesManager.setLoggedIn(true)
-
-            _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
+    /** "This isn't me" / manual fallback from the confirm screen. */
+    fun switchToManualEntry() {
+        _uiState.update {
+            it.copy(step = AuthStep.MANUAL_ENTRY, matchedMember = null, error = null)
         }
     }
 
     /**
-     * Called by AuthScreen after it has attempted to read the device's phone number.
-     * If a number was detected, try to match it to a registered member and log them in.
-     * If no number was detected or no match was found, fall back to manual entry.
-     */
-    fun onDevicePhoneDetected(detectedPhone: String?) {
-        viewModelScope.launch {
-            if (detectedPhone.isNullOrBlank()) {
-                // Carrier didn't expose the number - fall back to manual entry
-                _uiState.update {
-                    it.copy(
-                        manualEntryMode = true,
-                        detectedPhoneNumber = null,
-                        error = null
-                    )
-                }
-                return@launch
-            }
-
-            _uiState.update { it.copy(isLoading = true, detectedPhoneNumber = detectedPhone, error = null) }
-
-            val normalized = DevicePhoneUtil.normalize(detectedPhone)
-            val member = memberRepository.getMemberByPhone(normalized)
-            if (member == null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        manualEntryMode = true,
-                        error = "This phone ($detectedPhone) is not registered. Contact your admin or enter a different number."
-                    )
-                }
-                return@launch
-            }
-
-            memberRepository.verifyMember(member.id)
-            preferencesManager.setLoggedInMemberId(member.id)
-            preferencesManager.setLoggedIn(true)
-            _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
-        }
-    }
-
-    /**
-     * Manual fallback: user types their phone number directly. No SMS — if the number
-     * matches a registered member, log them in immediately.
+     * Manual fallback: user types their phone number directly. No SMS — if the
+     * number matches a registered member, log them in immediately.
      */
     fun loginWithManualPhone() {
         viewModelScope.launch {
@@ -168,14 +217,49 @@ class AuthViewModel @Inject constructor(
                 return@launch
             }
 
-            memberRepository.verifyMember(member.id)
-            preferencesManager.setLoggedInMemberId(member.id)
-            preferencesManager.setLoggedIn(true)
-            _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
+            // For manual entry, show confirmation step too if the member has a
+            // unit — consistent UX with the auto-detect path.
+            _uiState.update {
+                it.copy(
+                    step = AuthStep.CONFIRM_IDENTITY,
+                    isLoading = false,
+                    detectedPhoneNumber = normalized,
+                    matchedMember = member,
+                    unitNumber = member.unitNumber
+                )
+            }
         }
     }
 
-    fun switchToManualEntry() {
-        _uiState.update { it.copy(manualEntryMode = true, error = null) }
+    /**
+     * First-time setup: creates the admin account and logs in directly.
+     */
+    fun setupAdmin() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val name = _uiState.value.name.trim()
+            val phone = _uiState.value.phoneNumber.trim()
+
+            if (name.isBlank() || phone.isBlank()) {
+                _uiState.update { it.copy(isLoading = false, error = "Name and phone are required") }
+                return@launch
+            }
+
+            val memberId = memberRepository.addMember(
+                Member(
+                    name = name,
+                    phoneNumber = phone,
+                    unitNumber = _uiState.value.unitNumber.trim().uppercase(),
+                    isVerified = true,
+                    isAdmin = true
+                )
+            )
+
+            preferencesManager.setLoggedInMemberId(memberId)
+            preferencesManager.setLoggedIn(true)
+
+            _uiState.update { it.copy(isLoading = false, step = AuthStep.AUTHENTICATED) }
+        }
     }
 }

@@ -167,10 +167,10 @@ private fun DayCell(
         else -> MaterialTheme.colorScheme.onSurface
     }
 
-    Box(
+    Column(
         modifier = modifier
             .padding(2.dp)
-            .aspectRatio(0.9f)
+            .aspectRatio(0.72f)
             .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
             .border(
@@ -180,44 +180,39 @@ private fun DayCell(
                 shape = RoundedCornerShape(8.dp)
             )
             .clickable(enabled = cell.inCurrentMonth, onClick = onClick)
-            .padding(4.dp)
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = cell.date.dayOfMonth.toString(),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = fgColor
-            )
-            Text(
-                text = cell.hebrewDay,
-                fontSize = 11.sp,
-                color = fgColor.copy(alpha = 0.75f)
-            )
-        }
-
-        // Bottom-row indicators: red badge for call count, purple dot for CME
+        Text(
+            text = cell.date.dayOfMonth.toString(),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = fgColor
+        )
+        Text(
+            text = cell.hebrewDay,
+            fontSize = 10.sp,
+            color = fgColor.copy(alpha = 0.75f)
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        // Indicator row lives in its own row at the bottom of the column, so
+        // it never overlaps the day-number / Hebrew letter above.
         Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 1.dp),
             horizontalArrangement = Arrangement.spacedBy(3.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 2.dp)
         ) {
             if (cell.callCount > 0) {
                 Box(
                     modifier = Modifier
-                        .size(14.dp)
+                        .size(13.dp)
                         .clip(CircleShape)
                         .background(CallColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (cell.callCount > 9) "9+" else cell.callCount.toString(),
-                        fontSize = 9.sp,
+                        fontSize = 8.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -256,8 +251,6 @@ private fun DayDetailDialog(
     onDismiss: () -> Unit
 ) {
     val hebrew = HebrewDate.fromGregorian(cell.date)
-    val dayOfWeekIdx = (cell.date.dayOfWeek.value % 7) // Sun=0..Sat=6
-    val yiddishDay = HebrewDate.yiddishDayNames[dayOfWeekIdx]
     val gregorianFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.ENGLISH)
     val gregorianLine = cell.date.format(gregorianFormatter)
     val cmeEvents = CmeSchedule.eventsOn(cell.date)
@@ -272,7 +265,7 @@ private fun DayDetailDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "$yiddishDay · ${hebrew.formatted()}",
+                    text = hebrew.formatted(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
