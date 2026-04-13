@@ -22,7 +22,10 @@ import javax.inject.Inject
  * Typical path: CHECKING -> NEED_PERMISSION -> DETECTING -> CONFIRM_IDENTITY
  *              -> AUTHENTICATED
  *
- * Fallback path: CHECKING -> NEED_PERMISSION -> MANUAL_ENTRY -> AUTHENTICATED
+ * Failure path: any detection failure or unregistered number routes to
+ *               SIGN_IN_FAILED, which shows a "Contact KY-85 for help"
+ *               screen. There is no manual phone-entry fallback — the
+ *               admin has to add the member and the user tries again.
  */
 enum class AuthStep {
     CHECKING,          // initial DB lookup (first-time setup? auto-login?)
@@ -30,7 +33,7 @@ enum class AuthStep {
     NEED_PERMISSION,   // READ_PHONE_NUMBERS not granted — show "grant permission" UI
     DETECTING,         // permission granted, reading the SIM line number
     CONFIRM_IDENTITY,  // we have a number + matched member, user confirms/edits unit
-    MANUAL_ENTRY,      // detection failed / unregistered / user picked manual
+    SIGN_IN_FAILED,    // detection failed / unregistered — show help contact
     AUTHENTICATED
 }
 
@@ -41,6 +44,10 @@ data class AuthUiState(
     val unitNumber: String = "",
     val detectedPhoneNumber: String? = null,
     val matchedMember: Member? = null,
+    val helpContactName: String = "",
+    val helpContactPhone: String = "",
+    val helpContactUnit: String = "KY-85",
+    val failureReason: String = "",
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -94,12 +101,7 @@ class AuthViewModel @Inject constructor(
     /** User granted/denied permission in the system dialog. */
     fun onPermissionResult(granted: Boolean, detectedPhone: String?) {
         if (!granted) {
-            _uiState.update {
-                it.copy(
-                    step = AuthStep.MANUAL_ENTRY,
-                    error = "Permission denied. Please enter your phone number manually."
-                )
-            }
+            failToSignIn("Permission was denied. We need to read your SIM phone number to sign you in automatically.")
             return
         }
         // Show the "retrieving" state briefly, then try to match.
@@ -123,29 +125,14 @@ class AuthViewModel @Inject constructor(
 
     private suspend fun resolveDetectedPhone(detectedPhone: String?) {
         if (detectedPhone.isNullOrBlank()) {
-            _uiState.update {
-                it.copy(
-                    step = AuthStep.MANUAL_ENTRY,
-                    isLoading = false,
-                    detectedPhoneNumber = null,
-                    error = "We couldn't read your phone number from this SIM. Please enter it manually."
-                )
-            }
+            failToSignIn("We couldn't read your phone number from this SIM. Some carriers don't expose the line number.")
             return
         }
 
         val normalized = DevicePhoneUtil.normalize(detectedPhone)
         val member = memberRepository.getMemberByPhone(normalized)
         if (member == null) {
-            _uiState.update {
-                it.copy(
-                    step = AuthStep.MANUAL_ENTRY,
-                    isLoading = false,
-                    detectedPhoneNumber = detectedPhone,
-                    phoneNumber = normalized,
-                    error = "The phone $detectedPhone is not registered. Ask your admin to add you, or enter a different number."
-                )
-            }
+            failToSignIn("The number $detectedPhone is not on the Hatzolah member list yet.")
             return
         }
 
@@ -158,6 +145,34 @@ class AuthViewModel @Inject constructor(
                 unitNumber = member.unitNumber
             )
         }
+    }
+
+    /**
+     * Central failure path: stores the help contact (KY-85, from the pre-
+     * populated roster) and flips the step to SIGN_IN_FAILED so the screen
+     * can offer a direct call button.
+     */
+    private fun failToSignIn(reason: String) {
+        viewModelScope.launch {
+            val helper = try {
+                memberRepository.getMemberByUnit("KY85")
+            } catch (_: Throwable) { null }
+            _uiState.update {
+                it.copy(
+                    step = AuthStep.SIGN_IN_FAILED,
+                    isLoading = false,
+                    failureReason = reason,
+                    helpContactName = helper?.name.orEmpty(),
+                    helpContactPhone = helper?.phoneNumber.orEmpty(),
+                    helpContactUnit = "KY-85"
+                )
+            }
+        }
+    }
+
+    /** Restart the flow after a failure — user wants to try auto-detect again. */
+    fun retryAutoDetect() {
+        _uiState.update { it.copy(step = AuthStep.NEED_PERMISSION, failureReason = "") }
     }
 
     /**
@@ -185,50 +200,9 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    /** "This isn't me" / manual fallback from the confirm screen. */
-    fun switchToManualEntry() {
-        _uiState.update {
-            it.copy(step = AuthStep.MANUAL_ENTRY, matchedMember = null, error = null)
-        }
-    }
-
-    /**
-     * Manual fallback: user types their phone number directly. No SMS — if the
-     * number matches a registered member, log them in immediately.
-     */
-    fun loginWithManualPhone() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val normalized = DevicePhoneUtil.normalize(_uiState.value.phoneNumber)
-            if (normalized.length < 10) {
-                _uiState.update { it.copy(isLoading = false, error = "Enter a valid phone number") }
-                return@launch
-            }
-
-            val member = memberRepository.getMemberByPhone(normalized)
-            if (member == null) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = "This phone number is not registered. Contact your admin."
-                    )
-                }
-                return@launch
-            }
-
-            // For manual entry, show confirmation step too if the member has a
-            // unit — consistent UX with the auto-detect path.
-            _uiState.update {
-                it.copy(
-                    step = AuthStep.CONFIRM_IDENTITY,
-                    isLoading = false,
-                    detectedPhoneNumber = normalized,
-                    matchedMember = member,
-                    unitNumber = member.unitNumber
-                )
-            }
-        }
+    /** "This isn't me" on the confirm screen → route to the failed screen. */
+    fun rejectIdentity() {
+        failToSignIn("Please contact KY-85 so the right phone number is on file for you.")
     }
 
     /**
