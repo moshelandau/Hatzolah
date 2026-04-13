@@ -22,9 +22,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.data.database.entity.CallLog
 import com.hatzolah.app.util.CmeSchedule
 import com.hatzolah.app.util.HebrewDate
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -35,6 +38,7 @@ private val CallColor = Color(0xFFE53935) // red badge for calls
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
+    onOpenCall: (Long) -> Unit = {},
     viewModel: CalendarViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -143,7 +147,11 @@ fun CalendarScreen(
     selectedDay?.let { day ->
         DayDetailDialog(
             cell = day,
-            calls = uiState.callsByDate[day.date].orEmpty().size,
+            calls = uiState.callsByDate[day.date].orEmpty(),
+            onOpenCall = { callId ->
+                selectedDay = null
+                onOpenCall(callId)
+            },
             onDismiss = { selectedDay = null }
         )
     }
@@ -247,7 +255,8 @@ private fun LegendDot(color: Color, label: String) {
 @Composable
 private fun DayDetailDialog(
     cell: CalendarDayCell,
-    calls: Int,
+    calls: List<CallLog>,
+    onOpenCall: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     val hebrew = HebrewDate.fromGregorian(cell.date)
@@ -272,42 +281,42 @@ private fun DayDetailDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // Call count row
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(CallColor.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.LocalHospital,
-                            contentDescription = null,
-                            tint = CallColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = if (calls == 0) "No calls"
-                            else if (calls == 1) "1 call"
-                            else "$calls calls",
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        if (calls == 0) {
-                            Text(
-                                text = "No dispatches recorded for this day",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (calls.isEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(CallColor.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.LocalHospital,
+                                contentDescription = null,
+                                tint = CallColor,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "No dispatches recorded for this day",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Text(
+                        text = if (calls.size == 1) "1 call" else "${calls.size} calls",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Bold
+                    )
+                    calls.forEach { call ->
+                        CallRow(call = call, onClick = { onOpenCall(call.id) })
                     }
                 }
 
-                // CME events (if any)
                 if (cmeEvents.isNotEmpty()) {
                     Divider()
                     cmeEvents.forEach { event ->
@@ -348,4 +357,59 @@ private fun DayDetailDialog(
             TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
+}
+
+@Composable
+private fun CallRow(call: CallLog, onClick: () -> Unit) {
+    val time = Instant.ofEpochMilli(call.date)
+        .atZone(ZoneId.systemDefault())
+        .toLocalTime()
+        .format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH))
+    val label = call.outcome.ifBlank { "Dispatch" }
+    val address = call.dispatchAddress.ifBlank { "No address recorded" }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(CallColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.LocalHospital,
+                    contentDescription = null,
+                    tint = CallColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                Text(
+                    text = address,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        Text(
+            text = time,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }

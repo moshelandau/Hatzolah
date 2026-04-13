@@ -249,9 +249,21 @@ private fun UrgentCareCard(
                         color = MaterialTheme.colorScheme.tertiary,
                         fontWeight = FontWeight.Medium
                     )
+                    val hasAnyContactInfo = h.address.isNotBlank() ||
+                        h.mainHotline.isNotBlank() ||
+                        h.departmentHotlines.isNotBlank() ||
+                        h.additionalNotes.isNotBlank()
                     if (h.address.isNotBlank()) {
                         Text(
                             text = h.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else if (!hasAnyContactInfo) {
+                        Text(
+                            text = "No contact info yet — add it in Admin",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -317,6 +329,32 @@ private fun UrgentCareCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 Divider()
                 Spacer(modifier = Modifier.height(12.dp))
+
+                val hasAnyExpandedContent = h.additionalNotes.isNotBlank() ||
+                    h.mainHotline.isNotBlank() ||
+                    h.departmentHotlines.isNotBlank() ||
+                    h.address.isNotBlank()
+
+                if (!hasAnyExpandedContent) {
+                    // Empty-state hint so the user knows how to fix it.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "No phone or address set yet. Add details in Admin → Urgent Care.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
                 if (h.additionalNotes.isNotBlank()) {
                     InfoRow(Icons.Default.Note, "Notes", h.additionalNotes)

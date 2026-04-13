@@ -13,6 +13,7 @@ import com.hatzolah.app.data.database.dao.ResidentDao
 import com.hatzolah.app.data.database.dao.SupplyRequestDao
 import com.hatzolah.app.data.database.entity.Hospital
 import com.hatzolah.app.util.PrepopulatedMembers
+import com.hatzolah.app.util.UrgentCareSeed
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,6 +28,17 @@ object AppModule {
     private val MIGRATION_2_3 = object : Migration(2, 3) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE members ADD COLUMN unitNumber TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Back-fill real contact info for the 5 pre-populated urgent care
+            // facilities that were originally inserted with empty fields, and
+            // insert any new ones (Aizer, Carestier, Williamsburg Pediatrics).
+            // We only update rows whose fields are still empty, so admins who
+            // already entered data in their admin screen are never overwritten.
+            seedUrgentCares(db)
         }
     }
 
@@ -65,6 +77,55 @@ object AppModule {
         }
     }
 
+    /**
+     * Seeds the real urgent care contact info from [UrgentCareSeed]. For each
+     * entry:
+     *  - If a row with the same name already exists, its empty fields are
+     *    filled in (but admin-edited fields are preserved).
+     *  - If no row exists, a new one is inserted.
+     *
+     * Also renames the legacy "Dr. Korengold" row to "Dr. Korngold" so the
+     * entries match the real spelling.
+     *
+     * Called from both onCreate (fresh install) and MIGRATION_4_5 (upgrade).
+     */
+    private fun seedUrgentCares(db: SupportSQLiteDatabase) {
+        // One-time rename of the legacy row created by MIGRATION_1_2.
+        db.execSQL(
+            "UPDATE hospitals SET name = 'Dr. Korngold' WHERE name = 'Dr. Korengold' AND facilityType = ?",
+            arrayOf(Hospital.FACILITY_URGENT_CARE)
+        )
+
+        val insertSql = "INSERT INTO hospitals (name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes, facilityType) " +
+                "SELECT ?, ?, '', '', '', '', 0.0, 0.0, ?, '', '', '', '', ?, ? " +
+                "WHERE NOT EXISTS (SELECT 1 FROM hospitals WHERE name = ? AND facilityType = ?)"
+
+        // Only fill in empty fields — never clobber admin edits.
+        val updateSql = "UPDATE hospitals SET " +
+                "address = CASE WHEN address IS NULL OR address = '' THEN ? ELSE address END, " +
+                "mainHotline = CASE WHEN mainHotline IS NULL OR mainHotline = '' THEN ? ELSE mainHotline END, " +
+                "additionalNotes = CASE WHEN additionalNotes IS NULL OR additionalNotes = '' THEN ? ELSE additionalNotes END " +
+                "WHERE name = ? AND facilityType = ?"
+
+        for (entry in UrgentCareSeed.entries) {
+            db.execSQL(
+                insertSql,
+                arrayOf(
+                    entry.name, entry.address, entry.phone, entry.notes,
+                    Hospital.FACILITY_URGENT_CARE,
+                    entry.name, Hospital.FACILITY_URGENT_CARE
+                )
+            )
+            db.execSQL(
+                updateSql,
+                arrayOf(
+                    entry.address, entry.phone, entry.notes,
+                    entry.name, Hospital.FACILITY_URGENT_CARE
+                )
+            )
+        }
+    }
+
     private val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE hospitals ADD COLUMN facilityType TEXT NOT NULL DEFAULT 'HOSPITAL'")
@@ -90,7 +151,7 @@ object AppModule {
             context,
             HatzolahDatabase::class.java,
             "hatzolah_db_v1b"
-        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4).addCallback(object : RoomDatabase.Callback() {
+        ).addCallback(object : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 // Pre-populate the entire team roster (BLS + Medics) and flag
@@ -119,19 +180,17 @@ object AppModule {
                     arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY 12550", "ER door 134#", "", "", "", "41.5034", "-74.0104", "845-561-4400", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Morgan Stanley Children's Hospital", "3959 Broadway, New York, NY 10032", "", "", "", "", "40.8403", "-73.9418", "", "", "", "", "", "Columbia Pediatrics", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Emergency Room", "622 W 168th St, New York, NY 10032", "", "", "", "", "40.8421", "-73.9422", "", "", "", "", "", "Columbia Adults", Hospital.FACILITY_HOSPITAL),
-                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
-                    // Urgent Care Facilities
-                    arrayOf("Rambam Urgent Care", "", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "", Hospital.FACILITY_URGENT_CARE),
-                    arrayOf("Zelcare", "", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "", Hospital.FACILITY_URGENT_CARE),
-                    arrayOf("Nestwell", "", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "", Hospital.FACILITY_URGENT_CARE),
-                    arrayOf("Dr. Korengold", "", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "", Hospital.FACILITY_URGENT_CARE),
-                    arrayOf("Dr. Wertzberger", "", "", "", "", "", "0.0", "0.0", "", "", "", "", "", "", Hospital.FACILITY_URGENT_CARE)
+                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "", Hospital.FACILITY_HOSPITAL)
                 )
                 for (h in hospitals) {
                     db.execSQL(insertSql, h)
                 }
+                // Urgent care facilities are seeded from the shared list so
+                // the data stays in sync with MIGRATION_4_5.
+                seedUrgentCares(db)
             }
-        }).fallbackToDestructiveMigration().build()
+        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+            .fallbackToDestructiveMigration().build()
     }
 
     @Provides

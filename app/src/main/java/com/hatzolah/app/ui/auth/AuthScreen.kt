@@ -1,5 +1,7 @@
 package com.hatzolah.app.ui.auth
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -10,9 +12,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SimCard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -101,12 +105,22 @@ fun AuthScreen(
                         AuthStep.NEED_PERMISSION -> NeedPermissionContent(
                             onAllow = {
                                 permissionLauncher.launch(DevicePhoneUtil.requiredPermission())
-                            },
-                            onManual = viewModel::switchToManualEntry
+                            }
                         )
                         AuthStep.DETECTING -> DetectingContent()
                         AuthStep.CONFIRM_IDENTITY -> ConfirmIdentityContent(uiState, viewModel)
-                        AuthStep.MANUAL_ENTRY -> ManualPhoneEntryContent(uiState, viewModel)
+                        AuthStep.SIGN_IN_FAILED -> SignInFailedContent(
+                            uiState = uiState,
+                            onCallHelp = { phone ->
+                                try {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                                            .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                    )
+                                } catch (_: Throwable) {}
+                            },
+                            onRetry = viewModel::retryAutoDetect
+                        )
                         AuthStep.AUTHENTICATED -> LoadingContent("Signing you in…")
                     }
 
@@ -133,10 +147,7 @@ private fun LoadingContent(message: String) {
 }
 
 @Composable
-private fun NeedPermissionContent(
-    onAllow: () -> Unit,
-    onManual: () -> Unit
-) {
+private fun NeedPermissionContent(onAllow: () -> Unit) {
     Icon(
         imageVector = Icons.Default.LockOpen,
         contentDescription = null,
@@ -161,9 +172,99 @@ private fun NeedPermissionContent(
     Button(onClick = onAllow, modifier = Modifier.fillMaxWidth()) {
         Text("Allow Access")
     }
+}
+
+@Composable
+private fun SignInFailedContent(
+    uiState: AuthUiState,
+    onCallHelp: (String) -> Unit,
+    onRetry: () -> Unit
+) {
+    Icon(
+        imageVector = Icons.Default.ErrorOutline,
+        contentDescription = null,
+        modifier = Modifier.size(48.dp),
+        tint = MaterialTheme.colorScheme.error
+    )
     Spacer(modifier = Modifier.height(8.dp))
-    TextButton(onClick = onManual) {
-        Text("Enter number manually")
+    Text(
+        text = "We couldn't sign you in",
+        style = MaterialTheme.typography.titleLarge,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center
+    )
+    if (uiState.failureReason.isNotBlank()) {
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = uiState.failureReason,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+
+    Spacer(modifier = Modifier.height(20.dp))
+
+    // Help contact card — KY-85 Moshe Landau (or whoever is mapped to KY-85).
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        ),
+        shape = RoundedCornerShape(14.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Need help? Contact",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+            )
+            Text(
+                text = uiState.helpContactUnit,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            if (uiState.helpContactName.isNotBlank()) {
+                Text(
+                    text = uiState.helpContactName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (uiState.helpContactPhone.isNotBlank()) {
+                Button(
+                    onClick = { onCallHelp(uiState.helpContactPhone) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Call ${uiState.helpContactUnit}")
+                }
+            } else {
+                Text(
+                    text = "Reach out in person or on WhatsApp",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    OutlinedButton(
+        onClick = onRetry,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Try Again")
     }
 }
 
@@ -306,7 +407,7 @@ private fun ConfirmIdentityContent(
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    TextButton(onClick = viewModel::switchToManualEntry) {
+    TextButton(onClick = viewModel::rejectIdentity) {
         Text("This isn't me")
     }
 }
@@ -373,56 +474,6 @@ private fun FirstTimeSetupContent(uiState: AuthUiState, viewModel: AuthViewModel
             )
         } else {
             Text("Create Admin Account & Enter App")
-        }
-    }
-}
-
-@Composable
-private fun ManualPhoneEntryContent(uiState: AuthUiState, viewModel: AuthViewModel) {
-    Icon(
-        imageVector = Icons.Default.PhoneAndroid,
-        contentDescription = null,
-        modifier = Modifier.size(48.dp),
-        tint = MaterialTheme.colorScheme.primary
-    )
-    Spacer(modifier = Modifier.height(8.dp))
-    Text(
-        text = "Enter Your Phone Number",
-        style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.Bold,
-        textAlign = TextAlign.Center
-    )
-    Spacer(modifier = Modifier.height(6.dp))
-    Text(
-        text = "We couldn't read your number automatically. Please type it in manually.",
-        style = MaterialTheme.typography.bodyMedium,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Spacer(modifier = Modifier.height(20.dp))
-
-    OutlinedTextField(
-        value = uiState.phoneNumber,
-        onValueChange = viewModel::onPhoneChanged,
-        label = { Text("Phone Number") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-    )
-    Spacer(modifier = Modifier.height(16.dp))
-
-    Button(
-        onClick = viewModel::loginWithManualPhone,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = uiState.phoneNumber.length >= 10 && !uiState.isLoading
-    ) {
-        if (uiState.isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = MaterialTheme.colorScheme.onPrimary
-            )
-        } else {
-            Text("Continue")
         }
     }
 }

@@ -2,7 +2,9 @@ package com.hatzolah.app.ui.residents
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hatzolah.app.data.database.entity.Member
 import com.hatzolah.app.data.database.entity.Resident
+import com.hatzolah.app.data.repository.MemberRepository
 import com.hatzolah.app.data.repository.ResidentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -13,8 +15,11 @@ import javax.inject.Inject
 
 data class ResidentsUiState(
     val query: String = "",
+    val activeTab: Int = 0, // 0 = Residents, 1 = Members
     val residents: List<Resident> = emptyList(),
+    val members: List<Member> = emptyList(),
     val totalCount: Int = 0,
+    val memberCount: Int = 0,
     val selected: ResidentDetails? = null,
     val isLoading: Boolean = false,
     val importMessage: String? = null
@@ -31,10 +36,12 @@ data class ResidentDetails(
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ResidentsViewModel @Inject constructor(
-    private val repository: ResidentRepository
+    private val repository: ResidentRepository,
+    private val memberRepository: MemberRepository
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
+    private val _activeTab = MutableStateFlow(0)
     private val _selected = MutableStateFlow<ResidentDetails?>(null)
     private val _importMessage = MutableStateFlow<String?>(null)
     private val _count = MutableStateFlow(0)
@@ -55,16 +62,35 @@ class ResidentsViewModel @Inject constructor(
             else repository.search(q)
         }
 
+    // All members (filtered client-side on the query for simplicity).
+    private val membersFlow: Flow<List<Member>> = combine(
+        _query.debounce(150),
+        memberRepository.getAllMembers()
+    ) { q, members ->
+        val needle = q.trim().lowercase()
+        if (needle.isBlank()) members
+        else members.filter { m ->
+            m.name.lowercase().contains(needle) ||
+                m.phoneNumber.contains(needle) ||
+                m.unitNumber.lowercase().contains(needle)
+        }
+    }
+
     val uiState: StateFlow<ResidentsUiState> = combine(
-        _query,
-        residentsFlow,
+        combine(_query, _activeTab, residentsFlow, membersFlow) { q, tab, residents, members ->
+            ResidentsUiState(
+                query = q,
+                activeTab = tab,
+                residents = residents,
+                members = members,
+                memberCount = members.size
+            )
+        },
         _selected,
         _importMessage,
         _count
-    ) { query, residents, selected, msg, count ->
-        ResidentsUiState(
-            query = query,
-            residents = residents,
+    ) { base, selected, msg, count ->
+        base.copy(
             totalCount = count,
             selected = selected,
             importMessage = msg
@@ -77,6 +103,10 @@ class ResidentsViewModel @Inject constructor(
 
     fun onQueryChanged(q: String) {
         _query.value = q
+    }
+
+    fun onTabChanged(tab: Int) {
+        _activeTab.value = tab
     }
 
     fun selectResident(resident: Resident) {

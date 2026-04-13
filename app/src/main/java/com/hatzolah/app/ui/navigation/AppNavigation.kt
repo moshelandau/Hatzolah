@@ -172,7 +172,13 @@ fun AppNavigation() {
             }
             composable(Screen.Protocols.route) { ProtocolsScreen() }
             composable(Screen.Supplies.route) { SuppliesScreen() }
-            composable(Screen.Calendar.route) { CalendarScreen() }
+            composable(Screen.Calendar.route) {
+                CalendarScreen(
+                    onOpenCall = { callId ->
+                        navController.navigate("document/$callId")
+                    }
+                )
+            }
             composable(Screen.Admin.route) { AdminScreen() }
             composable(
                 route = "document/{callId}",
