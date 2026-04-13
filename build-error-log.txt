@@ -3,31 +3,31 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  9183096  21068 -rw-r--r--   1 runner   runner   21572407 Apr 12 15:37 app/build/outputs/apk/debug/app-debug.apk
+  9179741  21088 -rw-r--r--   1 runner   runner   21593875 Apr 13 04:55 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:mergeLibDexDebug
-> Task :app:kspDebugKotlin
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
 > Task :app:mergeExtDexDebug
+> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
-
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:287:5 Parameter 'rawMessage' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:305:9 Variable 'scope' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/analytics/AnalyticsScreen.kt:54:57 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/auth/AuthScreen.kt:239:5 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/calendar/CalendarScreen.kt:312:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/auth/AuthScreen.kt:340:5 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/calendar/CalendarScreen.kt:321:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallDocumentationScreen.kt:48:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/callhistory/CallHistoryScreen.kt:221:56 'Notes: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Notes
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/dashboard/DashboardScreen.kt:241:38 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:318:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:322:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:505:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:524:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:330:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:360:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:543:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:562:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/member/MemberDirectoryScreen.kt:73:72 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/protocols/ProtocolsScreen.kt:79:29 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/residents/ResidentsScreen.kt:330:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/residents/ResidentsScreen.kt:450:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/HebrewDate.kt:131:58 The value '0' assigned to 'var remaining: Int defined in com.hatzolah.app.util.HebrewDate.hebrewYearShort.`<anonymous>`' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/HebrewDate.kt:132:42 The value '0' assigned to 'var remaining: Int defined in com.hatzolah.app.util.HebrewDate.hebrewYearShort.`<anonymous>`' is never used
 
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 25s
+BUILD SUCCESSFUL in 1m 35s
 40 actionable tasks: 40 executed
