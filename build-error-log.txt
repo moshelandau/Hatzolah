@@ -3,12 +3,12 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8401376  21128 -rw-r--r--   1 runner   runner   21631171 Apr 15 13:46 app/build/outputs/apk/debug/app-debug.apk
+  9179983  21132 -rw-r--r--   1 runner   runner   21637451 Apr 15 13:59 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
+> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
-
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:57:13 Variable 'subText' is assigned but never accessed
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:62:13 The value 'extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()' assigned to 'val subText: String defined in com.hatzolah.app.service.DispatchNotificationListener.onNotificationPosted' is never used
@@ -25,7 +25,7 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:360:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:543:17 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/hospital/HospitalDirectoryScreen.kt:562:43 'Note: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Note
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/member/MemberDirectoryScreen.kt:114:63 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/member/MemberDirectoryScreen.kt:196:39 'Chat: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Chat
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/protocols/ProtocolsScreen.kt:79:29 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/residents/ResidentsScreen.kt:450:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/util/HebrewDate.kt:131:58 The value '0' assigned to 'var remaining: Int defined in com.hatzolah.app.util.HebrewDate.hebrewYearShort.`<anonymous>`' is never used
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 35s
+BUILD SUCCESSFUL in 1m 49s
 41 actionable tasks: 41 executed
