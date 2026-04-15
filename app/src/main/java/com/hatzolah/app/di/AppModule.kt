@@ -42,6 +42,51 @@ object AppModule {
         }
     }
 
+    /**
+     * Corrects the additionalNotes for a few rows in the urgent care list
+     * that aren't really urgent cares:
+     *  - Dr. Korngold is a plastic surgeon located in New City (far from KJ).
+     *  - Aizer Health is a family practice that offers "acute care" walk-in
+     *    slots, not a dedicated urgent care.
+     *  - Dr. Wertzberger is a pediatrics practice, not a walk-in urgent care.
+     *
+     * Only rows whose notes still match the OLD seed strings get rewritten,
+     * so any admin-edited rows are preserved. New installs pick up the same
+     * text via [UrgentCareSeed].
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // First, make sure the rows exist and have at least the address/
+            // phone filled in (handles the case of an install that skipped an
+            // earlier migration for any reason).
+            seedUrgentCares(db)
+
+            // Then force-update the notes for these specific rows, but only
+            // if the current notes are empty or still match the previous seed
+            // text — so we don't clobber manually-edited rows.
+            val oldKorngold = "Plastic surgery \u00B7 Dr. Jay M Korngold / Dr. Louis Korngold \u00B7 " +
+                    "Contact KY-18 Yoely Gross (845-537-1137) to coordinate patient " +
+                    "photos and info with Dr. Korngold"
+            val oldAizer = "Ext 4000 \u00B7 Mon\u2013Thu 9am\u20138pm \u00B7 Fri 9am\u20135pm \u00B7 Sun 9am\u20135pm \u00B7 Formerly Ezras Choilim"
+            val oldWertzberger = "Best Healthcare \u00B7 Pediatrics (Dr. Alan Werzberger)"
+
+            for (entry in UrgentCareSeed.entries) {
+                val oldNotes = when (entry.name) {
+                    "Dr. Korngold" -> oldKorngold
+                    "Aizer Health" -> oldAizer
+                    "Dr. Wertzberger" -> oldWertzberger
+                    else -> continue
+                }
+                db.execSQL(
+                    "UPDATE hospitals SET additionalNotes = ? " +
+                            "WHERE name = ? AND facilityType = ? " +
+                            "AND (additionalNotes IS NULL OR additionalNotes = '' OR additionalNotes = ?)",
+                    arrayOf(entry.notes, entry.name, Hospital.FACILITY_URGENT_CARE, oldNotes)
+                )
+            }
+        }
+    }
+
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Pre-populate the team roster for existing installs. Skips rows
@@ -189,7 +234,7 @@ object AppModule {
                 // the data stays in sync with MIGRATION_4_5.
                 seedUrgentCares(db)
             }
-        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .fallbackToDestructiveMigration().build()
     }
 

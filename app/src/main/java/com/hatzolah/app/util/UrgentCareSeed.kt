@@ -41,21 +41,25 @@ object UrgentCareSeed {
             name = "Dr. Korngold",
             address = "125 S Main St, New City, NY 10956",
             phone = "845-634-4554",
-            notes = "Plastic surgery · Dr. Jay M Korngold / Dr. Louis Korngold · " +
-                    "Contact KY-18 Yoely Gross (845-537-1137) to coordinate patient " +
-                    "photos and info with Dr. Korngold"
+            notes = "PLASTIC SURGERY ONLY \u2014 NOT a walk-in urgent care. " +
+                    "Located in New City (\u224830 min from Kiryas Joel, far for most runs). " +
+                    "Dr. Jay M Korngold / Dr. Louis Korngold. " +
+                    "Contact KY-18 Yoely Gross (845-537-1137) first to coordinate patient " +
+                    "photos and info before sending anyone."
         ),
         Entry(
             name = "Dr. Wertzberger",
             address = "22 Van Buren Dr, Kiryas Joel, NY 10950",
             phone = "845-783-2222",
-            notes = "Best Healthcare · Pediatrics (Dr. Alan Werzberger)"
+            notes = "Best Healthcare \u00B7 Pediatrics practice (Dr. Alan Werzberger) \u2014 NOT a dedicated urgent care."
         ),
         Entry(
             name = "Aizer Health",
             address = "49 Forest Rd, Monroe, NY 10950",
             phone = "845-782-3242",
-            notes = "Ext 4000 · Mon–Thu 9am–8pm · Fri 9am–5pm · Sun 9am–5pm · Formerly Ezras Choilim"
+            notes = "Family practice / primary care (formerly Ezras Choilim) \u2014 NOT a dedicated " +
+                    "urgent care. Offers \"acute care\" walk-in slots during regular practice hours. " +
+                    "Ext 4000 \u00B7 Mon\u2013Thu 9am\u20138pm \u00B7 Fri 9am\u20135pm \u00B7 Sun 9am\u20135pm."
         ),
         Entry(
             name = "Carestier Health Care",
