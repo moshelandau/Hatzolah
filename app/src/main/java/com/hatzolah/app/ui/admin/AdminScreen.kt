@@ -154,6 +154,7 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Text("App Configuration", style = MaterialTheme.typography.titleMedium)
