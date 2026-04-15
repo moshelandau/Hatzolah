@@ -43,16 +43,14 @@ object AppModule {
     }
 
     /**
-     * Corrects the additionalNotes for a few rows in the urgent care list
-     * that aren't really urgent cares:
-     *  - Dr. Korngold is a plastic surgeon located in New City (far from KJ).
-     *  - Aizer Health is a family practice that offers "acute care" walk-in
-     *    slots, not a dedicated urgent care.
-     *  - Dr. Wertzberger is a pediatrics practice, not a walk-in urgent care.
+     * Corrects fields for a few rows in the urgent care list:
+     *  - Dr. Korngold / Aizer Health / Dr. Wertzberger: rewrite notes to
+     *    flag that these aren't really walk-in urgent cares.
+     *  - Zelcare: fill in the real street address ("3 Hamaspik Way").
      *
-     * Only rows whose notes still match the OLD seed strings get rewritten,
-     * so any admin-edited rows are preserved. New installs pick up the same
-     * text via [UrgentCareSeed].
+     * Force-rewrites only happen when the current value is empty or still
+     * matches the previous seed text, so any admin-edited rows are
+     * preserved. New installs pick up the same text via [UrgentCareSeed].
      */
     private val MIGRATION_5_6 = object : Migration(5, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -84,6 +82,21 @@ object AppModule {
                     arrayOf(entry.notes, entry.name, Hospital.FACILITY_URGENT_CARE, oldNotes)
                 )
             }
+
+            // Force-update Zelcare's address when it still matches the stale
+            // "Monroe, NY 10950" placeholder the previous seed wrote. Admin-
+            // edited addresses (anything else) are left alone.
+            db.execSQL(
+                "UPDATE hospitals SET address = ? " +
+                        "WHERE name = ? AND facilityType = ? " +
+                        "AND (address IS NULL OR address = '' OR address = ?)",
+                arrayOf(
+                    "3 Hamaspik Way, Monroe, NY 10950",
+                    "Zelcare",
+                    Hospital.FACILITY_URGENT_CARE,
+                    "Monroe, NY 10950"
+                )
+            )
         }
     }
 

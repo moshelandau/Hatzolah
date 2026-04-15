@@ -27,7 +27,7 @@ object UrgentCareSeed {
         ),
         Entry(
             name = "Zelcare",
-            address = "Monroe, NY 10950",
+            address = "3 Hamaspik Way, Monroe, NY 10950",
             phone = "845-782-0000",
             notes = "Dr. Dov Markowitz"
         ),
