@@ -370,21 +370,14 @@ private fun ConfirmIdentityContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Editable unit number so the user can confirm or correct it.
+        // Read-only unit number display — editing is not allowed from this screen.
         OutlinedTextField(
             value = uiState.unitNumber,
-            onValueChange = viewModel::onUnitChanged,
+            onValueChange = {},
             label = { Text("Unit Number") },
-            placeholder = { Text("e.g. KY85") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            supportingText = {
-                Text(
-                    text = if (member.unitNumber.isBlank()) "Enter your unit number to continue"
-                    else "Confirm your unit number or edit it below",
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 
