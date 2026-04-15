@@ -100,6 +100,31 @@ object AppModule {
         }
     }
 
+    /**
+     * Backfills latitude / longitude for urgent care rows that are still at
+     * the default (0.0, 0.0). Before this migration the urgent care entries
+     * had no coordinates, which meant the Hospital Directory distance
+     * calculation short-circuited to `null` and the mileage badge never
+     * appeared. Hospital rows are untouched.
+     */
+    private val MIGRATION_6_7 = object : Migration(6, 7) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            for (entry in UrgentCareSeed.entries) {
+                db.execSQL(
+                    "UPDATE hospitals SET latitude = ?, longitude = ? " +
+                            "WHERE name = ? AND facilityType = ? " +
+                            "AND (latitude = 0.0 OR longitude = 0.0)",
+                    arrayOf(
+                        entry.latitude,
+                        entry.longitude,
+                        entry.name,
+                        Hospital.FACILITY_URGENT_CARE
+                    )
+                )
+            }
+        }
+    }
+
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Pre-populate the team roster for existing installs. Skips rows
@@ -155,21 +180,25 @@ object AppModule {
         )
 
         val insertSql = "INSERT INTO hospitals (name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes, facilityType) " +
-                "SELECT ?, ?, '', '', '', '', 0.0, 0.0, ?, '', '', '', '', ?, ? " +
+                "SELECT ?, ?, '', '', '', '', ?, ?, ?, '', '', '', '', ?, ? " +
                 "WHERE NOT EXISTS (SELECT 1 FROM hospitals WHERE name = ? AND facilityType = ?)"
 
         // Only fill in empty fields — never clobber admin edits.
         val updateSql = "UPDATE hospitals SET " +
                 "address = CASE WHEN address IS NULL OR address = '' THEN ? ELSE address END, " +
                 "mainHotline = CASE WHEN mainHotline IS NULL OR mainHotline = '' THEN ? ELSE mainHotline END, " +
-                "additionalNotes = CASE WHEN additionalNotes IS NULL OR additionalNotes = '' THEN ? ELSE additionalNotes END " +
+                "additionalNotes = CASE WHEN additionalNotes IS NULL OR additionalNotes = '' THEN ? ELSE additionalNotes END, " +
+                "latitude = CASE WHEN latitude = 0.0 THEN ? ELSE latitude END, " +
+                "longitude = CASE WHEN longitude = 0.0 THEN ? ELSE longitude END " +
                 "WHERE name = ? AND facilityType = ?"
 
         for (entry in UrgentCareSeed.entries) {
             db.execSQL(
                 insertSql,
                 arrayOf(
-                    entry.name, entry.address, entry.phone, entry.notes,
+                    entry.name, entry.address,
+                    entry.latitude, entry.longitude,
+                    entry.phone, entry.notes,
                     Hospital.FACILITY_URGENT_CARE,
                     entry.name, Hospital.FACILITY_URGENT_CARE
                 )
@@ -178,6 +207,7 @@ object AppModule {
                 updateSql,
                 arrayOf(
                     entry.address, entry.phone, entry.notes,
+                    entry.latitude, entry.longitude,
                     entry.name, Hospital.FACILITY_URGENT_CARE
                 )
             )
@@ -247,7 +277,7 @@ object AppModule {
                 // the data stays in sync with MIGRATION_4_5.
                 seedUrgentCares(db)
             }
-        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
             .fallbackToDestructiveMigration().build()
     }
 

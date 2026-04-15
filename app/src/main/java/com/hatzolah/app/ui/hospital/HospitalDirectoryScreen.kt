@@ -243,10 +243,15 @@ private fun UrgentCareCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    val subType = facilitySubType(h.additionalNotes)
                     Text(
-                        text = "Urgent Care",
+                        text = subType.label,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.tertiary,
+                        color = if (subType.isWalkIn) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                         fontWeight = FontWeight.Medium
                     )
                     val hasAnyContactInfo = h.address.isNotBlank() ||
@@ -665,5 +670,33 @@ private fun InfoRow(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+    }
+}
+
+/**
+ * The actual facility type of a row in the Urgent Care tab, derived from its
+ * `additionalNotes`. The tab is a catch-all for out-of-hospital referrals, but
+ * not every row is actually a walk-in urgent care: some are private practices
+ * (pediatrics, plastic surgery, family medicine) that we route to for specific
+ * cases. Show that sub-type so the operator can tell at a glance what they're
+ * dispatching to, instead of every row saying "Urgent Care".
+ */
+private data class FacilitySubType(val label: String, val isWalkIn: Boolean)
+
+private fun facilitySubType(notes: String): FacilitySubType {
+    val n = notes.lowercase()
+    return when {
+        "plastic surgery" in n ->
+            FacilitySubType("Plastic Surgery \u2014 NOT walk-in", isWalkIn = false)
+        "pediatrics practice" in n || "pediatrics (" in n ->
+            FacilitySubType("Pediatrics \u2014 NOT walk-in", isWalkIn = false)
+        "family practice" in n || "primary care" in n ->
+            FacilitySubType("Family Practice \u2014 acute-care hours", isWalkIn = false)
+        "pediatrics" in n ->
+            FacilitySubType("Pediatrics walk-in", isWalkIn = true)
+        "family health" in n ->
+            FacilitySubType("Family Health walk-in", isWalkIn = true)
+        else ->
+            FacilitySubType("Urgent Care", isWalkIn = true)
     }
 }
