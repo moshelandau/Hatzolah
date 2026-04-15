@@ -3,7 +3,7 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8918327  21116 -rw-r--r--   1 runner   runner   21619835 Apr 15 02:27 app/build/outputs/apk/debug/app-debug.apk
+  9179891  21116 -rw-r--r--   1 runner   runner   21619891 Apr 15 03:55 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
 > Task :app:kaptGenerateStubsDebugKotlin
