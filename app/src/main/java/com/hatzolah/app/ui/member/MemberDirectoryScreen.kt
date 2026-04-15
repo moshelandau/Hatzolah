@@ -26,7 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +48,19 @@ fun MemberDirectoryScreen(
         val uiState by viewModel.uiState.collectAsState()
         val context = LocalContext.current
 
+        // Local TextFieldValue preserves cursor position across ViewModel state
+        // emissions — without this, each recompose resets the cursor to position 0
+        // on Hebrew/RTL devices, making typed characters appear in reverse order.
+        var searchFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+        LaunchedEffect(uiState.searchQuery) {
+            if (uiState.searchQuery != searchFieldValue.text) {
+                searchFieldValue = TextFieldValue(
+                    text = uiState.searchQuery,
+                    selection = TextRange(uiState.searchQuery.length)
+                )
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -53,9 +68,12 @@ fun MemberDirectoryScreen(
         ) {
             // Search box with clear button
             OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = viewModel::onSearchChanged,
-                placeholder = { Text("Search by name or unit # (e.g. 89)") },
+                value = searchFieldValue,
+                onValueChange = { newValue ->
+                    searchFieldValue = newValue
+                    viewModel.onSearchChanged(newValue.text)
+                },
+                placeholder = { Text("Name or unit #") },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Search,
@@ -64,8 +82,11 @@ fun MemberDirectoryScreen(
                     )
                 },
                 trailingIcon = {
-                    if (uiState.searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onSearchChanged("") }) {
+                    if (searchFieldValue.text.isNotEmpty()) {
+                        IconButton(onClick = {
+                            searchFieldValue = TextFieldValue("")
+                            viewModel.onSearchChanged("")
+                        }) {
                             Icon(Icons.Default.Clear, contentDescription = "Clear")
                         }
                     }

@@ -14,7 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +32,16 @@ fun ResidentsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showImportDialog by remember { mutableStateOf(false) }
+
+    var searchFieldValue by remember { mutableStateOf(TextFieldValue("")) }
+    LaunchedEffect(uiState.query) {
+        if (uiState.query != searchFieldValue.text) {
+            searchFieldValue = TextFieldValue(
+                text = uiState.query,
+                selection = TextRange(uiState.query.length)
+            )
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         // Header
@@ -79,14 +91,19 @@ fun ResidentsScreen(
 
         // Search bar - accepts Hebrew and English
         OutlinedTextField(
-            value = uiState.query,
-            onValueChange = viewModel::onQueryChanged,
-            label = { Text("Search (English or עברית)") },
-            placeholder = { Text("Name, phone, address...") },
+            value = searchFieldValue,
+            onValueChange = { newValue ->
+                searchFieldValue = newValue
+                viewModel.onQueryChanged(newValue.text)
+            },
+            placeholder = { Text("Search...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             trailingIcon = {
-                if (uiState.query.isNotBlank()) {
-                    IconButton(onClick = { viewModel.onQueryChanged("") }) {
+                if (searchFieldValue.text.isNotBlank()) {
+                    IconButton(onClick = {
+                        searchFieldValue = TextFieldValue("")
+                        viewModel.onQueryChanged("")
+                    }) {
                         Icon(Icons.Default.Clear, contentDescription = "Clear")
                     }
                 }
