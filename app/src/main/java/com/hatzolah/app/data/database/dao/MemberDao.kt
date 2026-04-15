@@ -22,7 +22,17 @@ interface MemberDao {
     @Query("SELECT * FROM members WHERE isVerified = 1 ORDER BY name ASC")
     fun getVerifiedMembers(): Flow<List<Member>>
 
-    @Query("SELECT * FROM members WHERE name LIKE '%' || :query || '%' OR phoneNumber LIKE '%' || :query || '%'")
+    /**
+     * Match members by name OR unit number (e.g. typing "89" finds KY-89).
+     * Phone number is intentionally NOT searched — the member directory is a
+     * roster lookup, not a phone lookup, so operators can find a specific
+     * unit without having to know the phone number.
+     */
+    @Query(
+        "SELECT * FROM members " +
+        "WHERE name LIKE '%' || :query || '%' " +
+        "   OR unitNumber LIKE '%' || :query || '%'"
+    )
     fun searchMembers(query: String): Flow<List<Member>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

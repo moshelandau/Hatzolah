@@ -40,7 +40,8 @@ import javax.inject.Inject
 sealed class SmsImportState {
     data object IDLE : SmsImportState()
     data object IMPORTING : SmsImportState()
-    data class DONE(val count: Int) : SmsImportState()
+    data object PERMISSION_DENIED : SmsImportState()
+    data class DONE(val imported: Int, val cleaned: Int) : SmsImportState()
 }
 
 @AndroidEntryPoint
@@ -52,21 +53,19 @@ class MainActivity : ComponentActivity() {
 
     private val importScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /** Tracks whether we need to show the "switch back" prompt after import */
+    /** Drives the SMS-import dialog UI (importing / done / permission-denied). */
     private val _smsImportState = mutableStateOf<SmsImportState>(SmsImportState.IDLE)
 
-    private val defaultSmsLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        // After returning from the default SMS picker, check if we're now default
-        if (isDefaultSmsApp()) {
-            // We're default — run import then prompt to switch back
+    private val smsImportPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
             _smsImportState.value = SmsImportState.IMPORTING
-            importPastDispatchSms(onComplete = { count ->
-                _smsImportState.value = SmsImportState.DONE(count)
+            importPastDispatchSms(onComplete = { imported, cleaned ->
+                _smsImportState.value = SmsImportState.DONE(imported, cleaned)
             })
         } else {
-            _smsImportState.value = SmsImportState.IDLE
+            _smsImportState.value = SmsImportState.PERMISSION_DENIED
         }
     }
 
@@ -92,7 +91,8 @@ class MainActivity : ComponentActivity() {
             hasShownDispatch = true
         }
 
-        // Import past dispatch SMS from inbox into call history
+        // Import past dispatch SMS from inbox into call history (silent; only
+        // runs if READ_SMS was already granted — no UI side-effects here).
         importPastDispatchSms()
 
         setContent {
@@ -117,23 +117,54 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     is SmsImportState.DONE -> {
+                        val msg = buildString {
+                            if (state.imported > 0) {
+                                append("Imported ${state.imported} dispatch call")
+                                append(if (state.imported == 1) "." else "s.")
+                            } else {
+                                append("No new dispatch messages found.")
+                            }
+                            if (state.cleaned > 0) {
+                                append("\n\nRemoved ${state.cleaned} incorrectly-imported non-dispatch message")
+                                append(if (state.cleaned == 1) "." else "s.")
+                            }
+                        }
                         AlertDialog(
                             onDismissRequest = { _smsImportState.value = SmsImportState.IDLE },
                             title = { Text("Import Complete") },
+                            text = { Text(msg) },
+                            confirmButton = {
+                                Button(onClick = { _smsImportState.value = SmsImportState.IDLE }) {
+                                    Text("OK")
+                                }
+                            }
+                        )
+                    }
+                    is SmsImportState.PERMISSION_DENIED -> {
+                        AlertDialog(
+                            onDismissRequest = { _smsImportState.value = SmsImportState.IDLE },
+                            title = { Text("SMS Access Needed") },
                             text = {
                                 Text(
-                                    if (state.count > 0) "Imported ${state.count} dispatch calls.\n\nSwitch back to your regular SMS app now."
-                                    else "No new dispatch messages found.\n\nSwitch back to your regular SMS app now."
+                                    "Hatzolah needs SMS read permission to import past dispatch " +
+                                    "calls from your inbox. You can grant it from Android " +
+                                    "Settings \u2192 Apps \u2192 Hatzolah \u2192 Permissions \u2192 SMS."
                                 )
                             },
                             confirmButton = {
-                                Button(onClick = { requestRestoreDefaultSms() }) {
-                                    Text("Switch SMS App Back")
-                                }
+                                Button(onClick = {
+                                    _smsImportState.value = SmsImportState.IDLE
+                                    try {
+                                        startActivity(Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.fromParts("package", packageName, null)
+                                        ))
+                                    } catch (_: Throwable) {}
+                                }) { Text("Open Settings") }
                             },
                             dismissButton = {
                                 TextButton(onClick = { _smsImportState.value = SmsImportState.IDLE }) {
-                                    Text("Later")
+                                    Text("Cancel")
                                 }
                             }
                         )
@@ -181,8 +212,9 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Called from AdminScreen to start the SMS import flow.
-     * If we already have READ_SMS, imports directly.
-     * Otherwise, prompts user to set as default SMS app first.
+     * Requests the standard READ_SMS runtime permission — no need to make
+     * Hatzolah the default SMS app. If the permission is already granted,
+     * runs the import immediately; otherwise prompts the user.
      */
     fun triggerSmsImport() {
         val hasReadSms = ContextCompat.checkSelfPermission(
@@ -191,35 +223,12 @@ class MainActivity : ComponentActivity() {
 
         if (hasReadSms) {
             _smsImportState.value = SmsImportState.IMPORTING
-            importPastDispatchSms(onComplete = { count ->
-                _smsImportState.value = SmsImportState.DONE(count)
+            importPastDispatchSms(onComplete = { imported, cleaned ->
+                _smsImportState.value = SmsImportState.DONE(imported, cleaned)
             })
         } else {
-            requestBecomeDefaultSms()
+            smsImportPermissionLauncher.launch(Manifest.permission.READ_SMS)
         }
-    }
-
-    private fun isDefaultSmsApp(): Boolean {
-        return try {
-            Telephony.Sms.getDefaultSmsPackage(this) == packageName
-        } catch (_: Throwable) { false }
-    }
-
-    private fun requestBecomeDefaultSms() {
-        val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
-            putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, packageName)
-        }
-        defaultSmsLauncher.launch(intent)
-    }
-
-    private fun requestRestoreDefaultSms() {
-        // Open the default SMS picker so the user can switch back
-        val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
-            // Don't pre-fill — let the user pick their real SMS app
-            putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, "com.google.android.apps.messaging")
-        }
-        try { startActivity(intent) } catch (_: Throwable) {}
-        _smsImportState.value = SmsImportState.IDLE
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
@@ -230,68 +239,99 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Scans the device SMS inbox for past messages from the dispatch number
-     * and imports any that aren't already in the call log database.
+     * and imports any that aren't already in the call log database. Also
+     * cleans up any previously-imported rows whose raw message does not
+     * actually parse as a dispatch (e.g. shift changes, hospital-address
+     * updates) — these used to slip through when the parser was lenient.
+     *
+     * onComplete is called with (importedCount, cleanedCount).
      */
-    private fun importPastDispatchSms(onComplete: ((Int) -> Unit)? = null) {
-        if (!preferencesManager.isLoggedIn()) { onComplete?.invoke(0); return }
+    private fun importPastDispatchSms(onComplete: ((Int, Int) -> Unit)? = null) {
+        if (!preferencesManager.isLoggedIn()) { onComplete?.invoke(0, 0); return }
         val dispatchNumber = preferencesManager.getDispatchNumber()
-        if (dispatchNumber.isBlank()) { onComplete?.invoke(0); return }
-
-        val hasReadSms = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.READ_SMS
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasReadSms) { onComplete?.invoke(0); return }
+        if (dispatchNumber.isBlank()) { onComplete?.invoke(0, 0); return }
 
         val memberId = preferencesManager.getLoggedInMemberId()
         val normalizedDispatch = dispatchNumber.replace(Regex("[^0-9]"), "").takeLast(10)
 
         importScope.launch {
-            var imported = 0
-            var cursor: Cursor? = null
+            // Cleanup pass: remove previously-imported rows that don't parse
+            // as real dispatches. Only touches undocumented rows so we never
+            // delete user-edited call entries.
+            var cleaned = 0
             try {
-                cursor = contentResolver.query(
-                    Telephony.Sms.Inbox.CONTENT_URI,
-                    arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
-                    null, null,
-                    "${Telephony.Sms.DATE} ASC"
-                )
-                if (cursor == null) { onComplete?.invoke(0); return@launch }
-
-                while (cursor.moveToNext()) {
-                    val address = cursor.getString(0) ?: continue
-                    val body = cursor.getString(1) ?: continue
-                    val date = cursor.getLong(2)
-
-                    val normalizedSender = address.replace(Regex("[^0-9]"), "").takeLast(10)
-                    if (normalizedSender != normalizedDispatch) continue
-
-                    val parsed = smsParser.parseDispatchMessage(body) ?: continue
-
-                    // Skip if already imported (dedup by raw message text)
-                    if (callLogRepository.existsByRawMessage(body)) continue
-
-                    callLogRepository.addCallLog(
-                        CallLog(
-                            memberId = memberId,
-                            date = date,
-                            dispatchAddress = parsed.address,
-                            outcome = parsed.callType,
-                            medicalNotes = body,
-                            isDocumented = false
-                        )
-                    )
-                    imported++
+                val undocumented = callLogRepository.getUndocumentedCallLogs()
+                for (log in undocumented) {
+                    val raw = log.medicalNotes
+                    if (raw.isBlank()) continue
+                    if (smsParser.parseDispatchMessage(raw) == null) {
+                        callLogRepository.deleteCallLog(log)
+                        cleaned++
+                    }
                 }
-                if (imported > 0) {
-                    Log.i("Hatzolah", "Imported $imported past dispatch SMS into call history")
+                if (cleaned > 0) {
+                    Log.i("Hatzolah", "Removed $cleaned non-dispatch rows from call history")
                 }
             } catch (e: Throwable) {
-                Log.w("Hatzolah", "SMS import failed", e)
-            } finally {
-                try { cursor?.close() } catch (_: Throwable) {}
+                Log.w("Hatzolah", "Call-log cleanup failed", e)
             }
-            val finalCount = imported
-            runOnUiThread { onComplete?.invoke(finalCount) }
+
+            // Import pass: requires READ_SMS. If we don't have it, skip the
+            // inbox scan but still report any cleanup that ran.
+            val hasReadSms = ContextCompat.checkSelfPermission(
+                this@MainActivity, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+
+            var imported = 0
+            if (hasReadSms) {
+                var cursor: Cursor? = null
+                try {
+                    cursor = contentResolver.query(
+                        Telephony.Sms.Inbox.CONTENT_URI,
+                        arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
+                        null, null,
+                        "${Telephony.Sms.DATE} ASC"
+                    )
+                    if (cursor != null) {
+                        while (cursor.moveToNext()) {
+                            val address = cursor.getString(0) ?: continue
+                            val body = cursor.getString(1) ?: continue
+                            val date = cursor.getLong(2)
+
+                            val normalizedSender = address.replace(Regex("[^0-9]"), "").takeLast(10)
+                            if (normalizedSender != normalizedDispatch) continue
+
+                            val parsed = smsParser.parseDispatchMessage(body) ?: continue
+
+                            // Skip if already imported (dedup by raw message text)
+                            if (callLogRepository.existsByRawMessage(body)) continue
+
+                            callLogRepository.addCallLog(
+                                CallLog(
+                                    memberId = memberId,
+                                    date = date,
+                                    dispatchAddress = parsed.address,
+                                    outcome = parsed.callType,
+                                    medicalNotes = body,
+                                    isDocumented = false
+                                )
+                            )
+                            imported++
+                        }
+                    }
+                    if (imported > 0) {
+                        Log.i("Hatzolah", "Imported $imported past dispatch SMS into call history")
+                    }
+                } catch (e: Throwable) {
+                    Log.w("Hatzolah", "SMS import failed", e)
+                } finally {
+                    try { cursor?.close() } catch (_: Throwable) {}
+                }
+            }
+
+            val finalImported = imported
+            val finalCleaned = cleaned
+            runOnUiThread { onComplete?.invoke(finalImported, finalCleaned) }
         }
     }
 

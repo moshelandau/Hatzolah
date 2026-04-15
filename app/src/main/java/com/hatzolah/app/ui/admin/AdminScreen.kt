@@ -291,7 +291,7 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 Text("Import Call History from SMS", style = MaterialTheme.typography.titleSmall)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    "Temporarily set Hatzolah as default SMS app to read past dispatch messages, then switch back.",
+                    "Grants SMS read access to scan your inbox for past dispatch messages and also removes any previously imported non-dispatch messages (e.g. shift or hospital-address updates).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

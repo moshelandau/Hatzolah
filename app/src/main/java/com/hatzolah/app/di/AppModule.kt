@@ -42,6 +42,64 @@ object AppModule {
         }
     }
 
+    /**
+     * Corrects fields for a few rows in the urgent care list:
+     *  - Dr. Korngold / Aizer Health / Dr. Wertzberger: rewrite notes to
+     *    flag that these aren't really walk-in urgent cares.
+     *  - Zelcare: fill in the real street address ("3 Hamaspik Way").
+     *
+     * Force-rewrites only happen when the current value is empty or still
+     * matches the previous seed text, so any admin-edited rows are
+     * preserved. New installs pick up the same text via [UrgentCareSeed].
+     */
+    private val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // First, make sure the rows exist and have at least the address/
+            // phone filled in (handles the case of an install that skipped an
+            // earlier migration for any reason).
+            seedUrgentCares(db)
+
+            // Then force-update the notes for these specific rows, but only
+            // if the current notes are empty or still match the previous seed
+            // text — so we don't clobber manually-edited rows.
+            val oldKorngold = "Plastic surgery \u00B7 Dr. Jay M Korngold / Dr. Louis Korngold \u00B7 " +
+                    "Contact KY-18 Yoely Gross (845-537-1137) to coordinate patient " +
+                    "photos and info with Dr. Korngold"
+            val oldAizer = "Ext 4000 \u00B7 Mon\u2013Thu 9am\u20138pm \u00B7 Fri 9am\u20135pm \u00B7 Sun 9am\u20135pm \u00B7 Formerly Ezras Choilim"
+            val oldWertzberger = "Best Healthcare \u00B7 Pediatrics (Dr. Alan Werzberger)"
+
+            for (entry in UrgentCareSeed.entries) {
+                val oldNotes = when (entry.name) {
+                    "Dr. Korngold" -> oldKorngold
+                    "Aizer Health" -> oldAizer
+                    "Dr. Wertzberger" -> oldWertzberger
+                    else -> continue
+                }
+                db.execSQL(
+                    "UPDATE hospitals SET additionalNotes = ? " +
+                            "WHERE name = ? AND facilityType = ? " +
+                            "AND (additionalNotes IS NULL OR additionalNotes = '' OR additionalNotes = ?)",
+                    arrayOf(entry.notes, entry.name, Hospital.FACILITY_URGENT_CARE, oldNotes)
+                )
+            }
+
+            // Force-update Zelcare's address when it still matches the stale
+            // "Monroe, NY 10950" placeholder the previous seed wrote. Admin-
+            // edited addresses (anything else) are left alone.
+            db.execSQL(
+                "UPDATE hospitals SET address = ? " +
+                        "WHERE name = ? AND facilityType = ? " +
+                        "AND (address IS NULL OR address = '' OR address = ?)",
+                arrayOf(
+                    "3 Hamaspik Way, Monroe, NY 10950",
+                    "Zelcare",
+                    Hospital.FACILITY_URGENT_CARE,
+                    "Monroe, NY 10950"
+                )
+            )
+        }
+    }
+
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Pre-populate the team roster for existing installs. Skips rows
@@ -189,7 +247,7 @@ object AppModule {
                 // the data stays in sync with MIGRATION_4_5.
                 seedUrgentCares(db)
             }
-        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
             .fallbackToDestructiveMigration().build()
     }
 
