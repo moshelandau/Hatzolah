@@ -55,6 +55,14 @@ interface CallLogDao {
     @Query("SELECT COUNT(*) FROM call_logs WHERE medicalNotes = :rawMessage")
     suspend fun countByRawMessage(rawMessage: String): Int
 
+    /**
+     * All undocumented calls - used by the SMS-import cleanup pass to identify
+     * previously-imported rows that don't actually correspond to a dispatch
+     * message so they can be deleted without touching user-edited entries.
+     */
+    @Query("SELECT * FROM call_logs WHERE isDocumented = 0")
+    suspend fun getUndocumentedCallLogs(): List<CallLog>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(callLog: CallLog): Long
 

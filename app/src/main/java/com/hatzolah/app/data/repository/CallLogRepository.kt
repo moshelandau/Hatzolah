@@ -43,6 +43,9 @@ class CallLogRepository @Inject constructor(
     suspend fun existsByRawMessage(rawMessage: String): Boolean =
         callLogDao.countByRawMessage(rawMessage) > 0
 
+    suspend fun getUndocumentedCallLogs(): List<CallLog> =
+        callLogDao.getUndocumentedCallLogs()
+
     suspend fun addCallLog(callLog: CallLog): Long = callLogDao.insert(callLog)
 
     suspend fun updateCallLog(callLog: CallLog) = callLogDao.update(callLog)

@@ -37,6 +37,14 @@ class SmsParser @Inject constructor() {
         val trimmed = message.trim()
         if (trimmed.isBlank()) return null
 
+        // STRICT: a real dispatch message always contains a "CALL TYPE:" field.
+        // Without this guard, other messages from the dispatch number (shift
+        // changes, hospital-address updates, announcements, etc.) would be
+        // imported as calls by the SMS-history importer.
+        if (!Regex("CALL\\s*TYPE\\s*:", RegexOption.IGNORE_CASE).containsMatchIn(trimmed)) {
+            return null
+        }
+
         // Extract fields using regex - works whether newlines exist or not
         val callType = Regex("CALL\\s*TYPE:\\s*([^\\n]+?)(?=\\s*(?:CALLER|CAD|UNITS|AGE|http|$))", RegexOption.IGNORE_CASE)
             .find(trimmed)?.groupValues?.get(1)?.trim() ?: ""
