@@ -50,7 +50,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 val bottomNavItems = listOf(
     Screen.Dashboard,
     Screen.Hospitals,
-    Screen.Residents,
+    Screen.Members,
     Screen.CallHistory,
     Screen.Calendar
 )
