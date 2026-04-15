@@ -275,6 +275,13 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 Text("Registered Members: ${uiState.members.size}")
                 Text("Hospitals in Directory: ${uiState.hospitals.size}")
                 Text("Urgent Care Facilities: ${uiState.urgentCares.size}")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "App version: ${com.hatzolah.app.BuildConfig.VERSION_NAME} " +
+                            "(build ${com.hatzolah.app.BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
 
