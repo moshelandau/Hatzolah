@@ -1,7 +1,10 @@
 package com.hatzolah.app.ui.callhistory
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -13,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.hatzolah.app.util.SupplySuggestions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,6 +139,52 @@ fun CallDocumentationScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // Quick-tap supply suggestions based on call type
+                    val suggestions = remember(uiState.callType) {
+                        SupplySuggestions.forCallType(uiState.callType)
+                    }
+                    if (suggestions.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Tap to add:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            suggestions.forEach { supply ->
+                                val alreadyAdded = uiState.suppliesNeeded.lines()
+                                    .any { it.trim().equals(supply, ignoreCase = true) }
+                                FilterChip(
+                                    selected = alreadyAdded,
+                                    onClick = {
+                                        val current = uiState.suppliesNeeded.trim()
+                                        if (alreadyAdded) {
+                                            // Remove it
+                                            val updated = current.lines()
+                                                .filter { !it.trim().equals(supply, ignoreCase = true) }
+                                                .joinToString("\n")
+                                            viewModel.onSuppliesNeededChanged(updated)
+                                        } else {
+                                            // Add it
+                                            val updated = if (current.isBlank()) supply
+                                            else "$current\n$supply"
+                                            viewModel.onSuppliesNeededChanged(updated)
+                                        }
+                                    },
+                                    label = {
+                                        Text(supply, style = MaterialTheme.typography.labelMedium)
+                                    },
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = uiState.suppliesNeeded,

@@ -144,6 +144,15 @@ class DispatchNotificationHelper @Inject constructor(
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
+            // "OPEN APP" action → opens the main dashboard
+            val appIntent = Intent(context, com.hatzolah.app.ui.MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            }
+            val appPendingIntent = PendingIntent.getActivity(
+                context, alertRequestCode + 5000, appIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
             val notificationManager =
                 context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -173,6 +182,7 @@ class DispatchNotificationHelper @Inject constructor(
                 .setContentIntent(alertPendingIntent)
                 .addAction(android.R.drawable.ic_menu_directions, "NAVIGATE", mapPendingIntent)
                 .addAction(android.R.drawable.ic_menu_view, "OPEN ALERT", alertPendingIntent)
+                .addAction(android.R.drawable.ic_menu_myplaces, "OPEN APP", appPendingIntent)
                 .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800))
                 .build()
 

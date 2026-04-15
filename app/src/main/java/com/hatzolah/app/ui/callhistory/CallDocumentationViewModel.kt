@@ -19,6 +19,7 @@ data class CallDocumentationUiState(
     val patientDob: String = "",
     val medicalNotes: String = "",
     val suppliesNeeded: String = "",
+    val callType: String = "",
     val isLoading: Boolean = false,
     val saved: Boolean = false,
     val error: String? = null
@@ -58,6 +59,7 @@ class CallDocumentationViewModel @Inject constructor(
                             patientName = call.patientName,
                             patientDob = call.patientDob,
                             medicalNotes = call.medicalNotes,
+                            callType = call.outcome,
                             isLoading = false
                         )
                     }

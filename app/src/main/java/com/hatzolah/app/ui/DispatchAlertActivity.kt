@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.Navigation
@@ -164,6 +165,15 @@ class DispatchAlertActivity : ComponentActivity() {
                     myMemberId = myMemberId,
                     onNavigate = { navigateToAddress(address) },
                     onCallMember = { phone -> dialNumber(phone) },
+                    onOpenApp = {
+                        try {
+                            val mainIntent = Intent(this@DispatchAlertActivity, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            }
+                            startActivity(mainIntent)
+                        } catch (_: Throwable) {}
+                        finish()
+                    },
                     onDismiss = {
                         try { preferencesManager.clearActiveDispatch() } catch (_: Throwable) {}
                         try {
@@ -293,6 +303,7 @@ fun DispatchAlertScreen(
     myMemberId: Long = -1,
     onNavigate: () -> Unit,
     onCallMember: (String) -> Unit,
+    onOpenApp: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val severity = getSeverity(callType)
@@ -395,7 +406,59 @@ fun DispatchAlertScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            // Restock note — tiny info icon, tappable to show supply checklist
+            val suggestedSupplies = remember(callType) {
+                com.hatzolah.app.util.SupplySuggestions.forCallType(callType)
+            }
+            var showSupplyDialog by remember { mutableStateOf(false) }
+
+            if (suggestedSupplies.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                IconButton(
+                    onClick = { showSupplyDialog = true },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Restock note",
+                        tint = Color.White.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            if (showSupplyDialog) {
+                AlertDialog(
+                    onDismissRequest = { showSupplyDialog = false },
+                    title = {
+                        Text(
+                            "Make sure you have",
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    text = {
+                        Column {
+                            suggestedSupplies.forEach { supply ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 3.dp)
+                                ) {
+                                    Text("•", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(supply, fontSize = 15.sp)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showSupplyDialog = false }) {
+                            Text("Got it")
+                        }
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -534,6 +597,23 @@ fun DispatchAlertScreen(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     color = bgColor
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = onOpenApp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "OPEN APP",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
 

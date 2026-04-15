@@ -51,6 +51,10 @@ interface CallLogDao {
     @Query("SELECT * FROM call_logs WHERE date >= :startMs AND date < :endMs ORDER BY date ASC")
     fun getCallLogsByDateRange(startMs: Long, endMs: Long): Flow<List<CallLog>>
 
+    /** Check if a call with a given raw message already exists (for SMS import dedup). */
+    @Query("SELECT COUNT(*) FROM call_logs WHERE medicalNotes = :rawMessage")
+    suspend fun countByRawMessage(rawMessage: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(callLog: CallLog): Long
 

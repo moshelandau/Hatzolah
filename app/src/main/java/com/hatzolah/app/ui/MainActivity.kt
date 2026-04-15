@@ -5,9 +5,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.Cursor
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.provider.Telephony
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,18 +22,53 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.hatzolah.app.data.database.entity.CallLog
+import com.hatzolah.app.data.repository.CallLogRepository
 import com.hatzolah.app.service.DispatchNotificationListener
+import com.hatzolah.app.service.SmsParser
 import com.hatzolah.app.ui.auth.AuthScreen
 import com.hatzolah.app.ui.navigation.AppNavigation
 import com.hatzolah.app.ui.theme.HatzolahTheme
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+sealed class SmsImportState {
+    data object IDLE : SmsImportState()
+    data object IMPORTING : SmsImportState()
+    data class DONE(val count: Int) : SmsImportState()
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var preferencesManager: PreferencesManager
+    @Inject lateinit var callLogRepository: CallLogRepository
+    @Inject lateinit var smsParser: SmsParser
+
+    private val importScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Tracks whether we need to show the "switch back" prompt after import */
+    private val _smsImportState = mutableStateOf<SmsImportState>(SmsImportState.IDLE)
+
+    private val defaultSmsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        // After returning from the default SMS picker, check if we're now default
+        if (isDefaultSmsApp()) {
+            // We're default — run import then prompt to switch back
+            _smsImportState.value = SmsImportState.IMPORTING
+            importPastDispatchSms(onComplete = { count ->
+                _smsImportState.value = SmsImportState.DONE(count)
+            })
+        } else {
+            _smsImportState.value = SmsImportState.IDLE
+        }
+    }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -53,6 +92,9 @@ class MainActivity : ComponentActivity() {
             hasShownDispatch = true
         }
 
+        // Import past dispatch SMS from inbox into call history
+        importPastDispatchSms()
+
         setContent {
             HatzolahTheme {
                 var isLoggedIn by remember { mutableStateOf(preferencesManager.isLoggedIn()) }
@@ -60,6 +102,43 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(Unit) {
                     showNotifAccessPrompt = !isNotificationListenerEnabled()
+                }
+
+                val smsImportState by _smsImportState
+
+                // SMS import dialogs
+                when (val state = smsImportState) {
+                    is SmsImportState.IMPORTING -> {
+                        AlertDialog(
+                            onDismissRequest = {},
+                            title = { Text("Importing Calls") },
+                            text = { Text("Scanning SMS inbox for past dispatch messages...") },
+                            confirmButton = {}
+                        )
+                    }
+                    is SmsImportState.DONE -> {
+                        AlertDialog(
+                            onDismissRequest = { _smsImportState.value = SmsImportState.IDLE },
+                            title = { Text("Import Complete") },
+                            text = {
+                                Text(
+                                    if (state.count > 0) "Imported ${state.count} dispatch calls.\n\nSwitch back to your regular SMS app now."
+                                    else "No new dispatch messages found.\n\nSwitch back to your regular SMS app now."
+                                )
+                            },
+                            confirmButton = {
+                                Button(onClick = { requestRestoreDefaultSms() }) {
+                                    Text("Switch SMS App Back")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { _smsImportState.value = SmsImportState.IDLE }) {
+                                    Text("Later")
+                                }
+                            }
+                        )
+                    }
+                    else -> {}
                 }
 
                 if (showNotifAccessPrompt && isLoggedIn) {
@@ -100,10 +179,120 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Called from AdminScreen to start the SMS import flow.
+     * If we already have READ_SMS, imports directly.
+     * Otherwise, prompts user to set as default SMS app first.
+     */
+    fun triggerSmsImport() {
+        val hasReadSms = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.READ_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasReadSms) {
+            _smsImportState.value = SmsImportState.IMPORTING
+            importPastDispatchSms(onComplete = { count ->
+                _smsImportState.value = SmsImportState.DONE(count)
+            })
+        } else {
+            requestBecomeDefaultSms()
+        }
+    }
+
+    private fun isDefaultSmsApp(): Boolean {
+        return try {
+            Telephony.Sms.getDefaultSmsPackage(this) == packageName
+        } catch (_: Throwable) { false }
+    }
+
+    private fun requestBecomeDefaultSms() {
+        val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
+            putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, packageName)
+        }
+        defaultSmsLauncher.launch(intent)
+    }
+
+    private fun requestRestoreDefaultSms() {
+        // Open the default SMS picker so the user can switch back
+        val intent = Intent(Telephony.Sms.Intents.ACTION_CHANGE_DEFAULT).apply {
+            // Don't pre-fill — let the user pick their real SMS app
+            putExtra(Telephony.Sms.Intents.EXTRA_PACKAGE_NAME, "com.google.android.apps.messaging")
+        }
+        try { startActivity(intent) } catch (_: Throwable) {}
+        _smsImportState.value = SmsImportState.IDLE
+    }
+
     private fun isNotificationListenerEnabled(): Boolean {
         val cn = ComponentName(this, DispatchNotificationListener::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
         return flat.contains(cn.flattenToString())
+    }
+
+    /**
+     * Scans the device SMS inbox for past messages from the dispatch number
+     * and imports any that aren't already in the call log database.
+     */
+    private fun importPastDispatchSms(onComplete: ((Int) -> Unit)? = null) {
+        if (!preferencesManager.isLoggedIn()) { onComplete?.invoke(0); return }
+        val dispatchNumber = preferencesManager.getDispatchNumber()
+        if (dispatchNumber.isBlank()) { onComplete?.invoke(0); return }
+
+        val hasReadSms = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.READ_SMS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!hasReadSms) { onComplete?.invoke(0); return }
+
+        val memberId = preferencesManager.getLoggedInMemberId()
+        val normalizedDispatch = dispatchNumber.replace(Regex("[^0-9]"), "").takeLast(10)
+
+        importScope.launch {
+            var imported = 0
+            var cursor: Cursor? = null
+            try {
+                cursor = contentResolver.query(
+                    Telephony.Sms.Inbox.CONTENT_URI,
+                    arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
+                    null, null,
+                    "${Telephony.Sms.DATE} ASC"
+                )
+                if (cursor == null) { onComplete?.invoke(0); return@launch }
+
+                while (cursor.moveToNext()) {
+                    val address = cursor.getString(0) ?: continue
+                    val body = cursor.getString(1) ?: continue
+                    val date = cursor.getLong(2)
+
+                    val normalizedSender = address.replace(Regex("[^0-9]"), "").takeLast(10)
+                    if (normalizedSender != normalizedDispatch) continue
+
+                    val parsed = smsParser.parseDispatchMessage(body) ?: continue
+
+                    // Skip if already imported (dedup by raw message text)
+                    if (callLogRepository.existsByRawMessage(body)) continue
+
+                    callLogRepository.addCallLog(
+                        CallLog(
+                            memberId = memberId,
+                            date = date,
+                            dispatchAddress = parsed.address,
+                            outcome = parsed.callType,
+                            medicalNotes = body,
+                            isDocumented = false
+                        )
+                    )
+                    imported++
+                }
+                if (imported > 0) {
+                    Log.i("Hatzolah", "Imported $imported past dispatch SMS into call history")
+                }
+            } catch (e: Throwable) {
+                Log.w("Hatzolah", "SMS import failed", e)
+            } finally {
+                try { cursor?.close() } catch (_: Throwable) {}
+            }
+            val finalCount = imported
+            runOnUiThread { onComplete?.invoke(finalCount) }
+        }
     }
 
     private fun requestRequiredPermissions() {

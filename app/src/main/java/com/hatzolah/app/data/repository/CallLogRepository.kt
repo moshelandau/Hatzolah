@@ -40,6 +40,9 @@ class CallLogRepository @Inject constructor(
 
     suspend fun getCallLogById(id: Long): CallLog? = callLogDao.getCallLogById(id)
 
+    suspend fun existsByRawMessage(rawMessage: String): Boolean =
+        callLogDao.countByRawMessage(rawMessage) > 0
+
     suspend fun addCallLog(callLog: CallLog): Long = callLogDao.insert(callLog)
 
     suspend fun updateCallLog(callLog: CallLog) = callLogDao.update(callLog)

@@ -279,6 +279,38 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Import Call History from SMS
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Import Call History from SMS", style = MaterialTheme.typography.titleSmall)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Temporarily set Hatzolah as default SMS app to read past dispatch messages, then switch back.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val activity = LocalContext.current as? com.hatzolah.app.ui.MainActivity
+                Button(
+                    onClick = { activity?.triggerSmsImport() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = activity != null
+                ) {
+                    Icon(Icons.Default.Sms, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Import Dispatch SMS")
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         // Crash log viewer
         val context = LocalContext.current
         var showCrashLog by remember { mutableStateOf(false) }

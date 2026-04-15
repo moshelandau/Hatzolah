@@ -35,6 +35,11 @@ class DispatchNotificationListener : NotificationListenerService() {
         val pkg = sbn.packageName
         if (!isSmsApp(pkg)) return
 
+        // Skip group summary notifications — they contain aggregated text from
+        // multiple conversations (e.g. "(844) 599-1212, (845) 481-0055") which
+        // the parser cannot extract a real address from.
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+
         val entryPoint = try {
             EntryPointAccessors.fromApplication(
                 applicationContext, ListenerEntryPoint::class.java
@@ -64,14 +69,16 @@ class DispatchNotificationListener : NotificationListenerService() {
             subText = ""
         }
 
-        val allText = "$title $text $bigText $subText"
         val normalizedDispatch = normalizePhone(dispatchNumber)
         if (normalizedDispatch.length < 7) return // avoid false positives on short strings
 
-        val isDispatch = normalizePhone(title) == normalizedDispatch ||
-                normalizePhone(allText).contains(normalizedDispatch) ||
-                allText.contains(dispatchNumber.takeLast(4)) ||
-                allText.contains(dispatchNumber.takeLast(7))
+        // Match the sender from the notification title (individual SMS notifications
+        // use the sender as the title). Require at least the last 7 digits to match
+        // to avoid false positives from group summaries or short digit sequences.
+        val normalizedTitle = normalizePhone(title)
+        val isDispatch = normalizedTitle == normalizedDispatch ||
+                (normalizedTitle.length >= 7 && normalizedDispatch.endsWith(normalizedTitle)) ||
+                (normalizedTitle.length >= 7 && normalizedTitle.endsWith(normalizedDispatch))
 
         if (!isDispatch) return
 
