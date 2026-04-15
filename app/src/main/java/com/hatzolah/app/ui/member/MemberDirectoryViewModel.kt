@@ -117,7 +117,18 @@ class MemberDirectoryViewModel @Inject constructor(
                 else -> 7
             }
         }
-        return members.sortedWith(compareBy<Member> { rank(it) }.then(baseComparator))
+        // For unit-match ranks (0–4) always tie-break by unit number so that
+        // e.g. typing "8" shows KY-80, KY-81 … KY-89 in numeric order, not
+        // alphabetical-by-name order. Name-match ranks (5–6) fall back to the
+        // user's selected sort (name or unit).
+        val ranked = members.map { it to rank(it) }
+        return ranked.sortedWith(
+            compareBy<Pair<Member, Int>> { it.second }
+                .thenComparator { (a, ra), (b, _) ->
+                    if (ra <= 4) unitComparator.compare(a, b)
+                    else baseComparator.compare(a, b)
+                }
+        ).map { it.first }
     }
 
     /**
