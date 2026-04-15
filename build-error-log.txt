@@ -3,12 +3,12 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  9179956  21124 -rw-r--r--   1 runner   runner   21630699 Apr 15 05:15 app/build/outputs/apk/debug/app-debug.apk
+  9179835  21124 -rw-r--r--   1 runner   runner   21630699 Apr 15 05:35 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
+> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
-
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:57:13 Variable 'subText' is assigned but never accessed
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:62:13 The value 'extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()' assigned to 'val subText: String defined in com.hatzolah.app.service.DispatchNotificationListener.onNotificationPosted' is never used
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 32s
+BUILD SUCCESSFUL in 1m 31s
 40 actionable tasks: 40 executed
