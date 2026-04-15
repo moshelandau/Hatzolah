@@ -74,7 +74,7 @@ class MemberDirectoryViewModel @Inject constructor(
         query: String,
         sort: MemberSortOption
     ): List<Member> {
-        val nameComparator = compareBy<Member>(String.CASE_INSENSITIVE_ORDER) { it.name }
+        val nameComparator = compareBy<Member> { it.name.lowercase() }
         val unitComparator = compareBy<Member>(
             { unitSortKey(it.unitNumber) },
             { it.unitNumber.lowercase() },
