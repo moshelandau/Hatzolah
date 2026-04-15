@@ -73,7 +73,21 @@ class ResidentsViewModel @Inject constructor(
             m.name.lowercase().contains(needle) ||
                 m.phoneNumber.contains(needle) ||
                 m.unitNumber.lowercase().contains(needle)
-        }
+        }.sortedWith(
+            // Sort filtered results by unit number numerically so that unit
+            // matches (e.g. KY-123) always appear before incidental phone/name
+            // matches that happen to contain the same digits (e.g. KY-132
+            // whose phone number contains "123").
+            compareBy(
+                { unitDigits(it.unitNumber) },
+                { it.name.lowercase() }
+            )
+        )
+    }
+
+    private fun unitDigits(unit: String): Int {
+        val digits = unit.filter { it.isDigit() }
+        return digits.toIntOrNull() ?: Int.MAX_VALUE
     }
 
     val uiState: StateFlow<ResidentsUiState> = combine(
