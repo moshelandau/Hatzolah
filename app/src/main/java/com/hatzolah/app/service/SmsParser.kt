@@ -33,15 +33,21 @@ class SmsParser @Inject constructor() {
      * UNITS: KY85
      * http://maps.google.com/maps?daddr=...
      */
-    fun parseDispatchMessage(message: String): ParsedDispatch? {
+    /**
+     * @param requireCallType When `true`, returns `null` unless the message
+     *   contains a "CALL TYPE:" field. Used by the SMS-history importer to
+     *   skip non-dispatch messages (shift changes, announcements, etc.).
+     *   For real-time notification / SMS processing the sender is already
+     *   confirmed as the dispatch number, so pass `false` (the default) to
+     *   let truncated notification previews through.
+     */
+    fun parseDispatchMessage(message: String, requireCallType: Boolean = false): ParsedDispatch? {
         val trimmed = message.trim()
         if (trimmed.isBlank()) return null
 
-        // STRICT: a real dispatch message always contains a "CALL TYPE:" field.
-        // Without this guard, other messages from the dispatch number (shift
-        // changes, hospital-address updates, announcements, etc.) would be
-        // imported as calls by the SMS-history importer.
-        if (!Regex("CALL\\s*TYPE\\s*:", RegexOption.IGNORE_CASE).containsMatchIn(trimmed)) {
+        if (requireCallType &&
+            !Regex("CALL\\s*TYPE\\s*:", RegexOption.IGNORE_CASE).containsMatchIn(trimmed)
+        ) {
             return null
         }
 

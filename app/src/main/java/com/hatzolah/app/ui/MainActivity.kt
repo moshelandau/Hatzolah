@@ -264,7 +264,7 @@ class MainActivity : ComponentActivity() {
                 for (log in undocumented) {
                     val raw = log.medicalNotes
                     if (raw.isBlank()) continue
-                    if (smsParser.parseDispatchMessage(raw) == null) {
+                    if (smsParser.parseDispatchMessage(raw, requireCallType = true) == null) {
                         callLogRepository.deleteCallLog(log)
                         cleaned++
                     }
@@ -301,7 +301,7 @@ class MainActivity : ComponentActivity() {
                             val normalizedSender = address.replace(Regex("[^0-9]"), "").takeLast(10)
                             if (normalizedSender != normalizedDispatch) continue
 
-                            val parsed = smsParser.parseDispatchMessage(body) ?: continue
+                            val parsed = smsParser.parseDispatchMessage(body, requireCallType = true) ?: continue
 
                             // Skip if already imported (dedup by raw message text)
                             if (callLogRepository.existsByRawMessage(body)) continue
