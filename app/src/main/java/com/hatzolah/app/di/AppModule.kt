@@ -101,14 +101,13 @@ object AppModule {
     }
 
     /**
-     * Backfills latitude / longitude for urgent care rows that are still at
-     * the default (0.0, 0.0). Before this migration the urgent care entries
-     * had no coordinates, which meant the Hospital Directory distance
-     * calculation short-circuited to `null` and the mileage badge never
-     * appeared. Hospital rows are untouched.
+     * v6 → v7:
+     *  1. Backfills lat/lng for urgent care rows that are still at (0.0, 0.0).
+     *  2. Updates St Lukes Newburgh: phone, door code, and more precise coords.
      */
     private val MIGRATION_6_7 = object : Migration(6, 7) {
         override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Urgent care coordinates backfill.
             for (entry in UrgentCareSeed.entries) {
                 db.execSQL(
                     "UPDATE hospitals SET latitude = ?, longitude = ? " +
@@ -122,6 +121,19 @@ object AppModule {
                     )
                 )
             }
+
+            // 2. St Lukes Newburgh: new phone, door code, precise coords.
+            db.execSQL(
+                "UPDATE hospitals SET " +
+                        "mainHotline = ?, erLocation = ?, " +
+                        "latitude = ?, longitude = ? " +
+                        "WHERE name = ? AND facilityType = ?",
+                arrayOf(
+                    "845-568-2305", "ER door 357#",
+                    41.503706, -74.014901,
+                    "St Lukes Newburgh", Hospital.FACILITY_HOSPITAL
+                )
+            )
         }
     }
 
@@ -265,7 +277,7 @@ object AppModule {
                     arrayOf("Maimonides Medical Center", "4802 10th Ave, Brooklyn, NY 11219", "Code 0911", "", "", "", "40.6354", "-73.9864", "", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
                     arrayOf("Stamford Hospital", "1 Hospital Plaza, Stamford, CT 06902", "Code 6-7-8-9", "", "", "", "41.0534", "-73.5387", "", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
                     arrayOf("Englewood Hospital", "350 Engle St, Englewood, NJ 07631", "ER Door 90211", "", "", "", "40.8932", "-73.9726", "201-894-3960", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
-                    arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY 12550", "ER door 134#", "", "", "", "41.5034", "-74.0104", "845-561-4400", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
+                    arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY 12550", "ER door 357#", "", "", "", "41.503706", "-74.014901", "845-568-2305", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Morgan Stanley Children's Hospital", "3959 Broadway, New York, NY 10032", "", "", "", "", "40.8403", "-73.9418", "", "", "", "", "", "Columbia Pediatrics", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Emergency Room", "622 W 168th St, New York, NY 10032", "", "", "", "", "40.8421", "-73.9422", "", "", "", "", "", "Columbia Adults", Hospital.FACILITY_HOSPITAL),
                     arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "", Hospital.FACILITY_HOSPITAL)
