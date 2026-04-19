@@ -34,15 +34,11 @@ class DispatchNotificationListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Clear any stale callbacks to prevent handler leak if onDestroy wasn't called
         try { mainHandler.removeCallbacksAndMessages(null) } catch (_: Throwable) {}
 
         val pkg = sbn.packageName
         if (!isSmsApp(pkg)) return
 
-        // Skip group summary notifications — they contain aggregated text from
-        // multiple conversations (e.g. "(844) 599-1212, (845) 481-0055") which
-        // the parser cannot extract a real address from.
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val entryPoint = try {
@@ -59,50 +55,54 @@ class DispatchNotificationListener : NotificationListenerService() {
         val title: String
         val text: String
         val bigText: String
-        val subText: String
         if (extras != null) {
             title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
             text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
             bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
-            subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
         } else {
             val ticker = sbn.notification.tickerText?.toString().orEmpty()
             if (ticker.isBlank()) return
             title = ""
             text = ticker
             bigText = ticker
-            subText = ""
         }
 
         val normalizedDispatch = normalizePhone(dispatchNumber)
-        if (normalizedDispatch.length < 7) return // avoid false positives on short strings
+        if (normalizedDispatch.length < 7) return
 
-        // Match the sender from the notification title (individual SMS notifications
-        // use the sender as the title). Require at least the last 7 digits to match
-        // to avoid false positives from group summaries or short digit sequences.
+        // --- Dispatch identification ---
+        // Step 1: try matching the notification title (the sender) against
+        //         the configured dispatch number via digit comparison.
         val normalizedTitle = normalizePhone(title)
-        val isDispatch = normalizedTitle == normalizedDispatch ||
+        val titleMatchesDispatch = normalizedTitle == normalizedDispatch ||
                 (normalizedTitle.length >= 7 && normalizedDispatch.endsWith(normalizedTitle)) ||
                 (normalizedTitle.length >= 7 && normalizedTitle.endsWith(normalizedDispatch))
 
-        if (!isDispatch) return
+        // Step 2: if the title is a contact name (e.g. "Hatzolah Dispatch")
+        //         instead of a raw phone number, normalizedTitle will have
+        //         too few digits to match. Fall back to checking the SMS
+        //         inbox for a recent message from the dispatch number.
+        var inboxBody: String? = null
+        if (titleMatchesDispatch) {
+            inboxBody = tryReadLatestSmsFrom(normalizedDispatch)
+        } else if (normalizedTitle.length < 7) {
+            inboxBody = tryReadLatestSmsFrom(normalizedDispatch)
+            if (inboxBody == null) return
+        } else {
+            return
+        }
 
         val smsParser = entryPoint.smsParser()
         val notificationHelper = entryPoint.notificationHelper()
 
-        // Primary: read the full SMS from the inbox (has all fields:
-        // address, call type, units, CAD, etc.). Falls back to the
-        // notification preview text if READ_SMS isn't granted or the
-        // message hasn't landed in the inbox yet.
         val notifBody = bigText.ifBlank { text }
-        val fullSmsBody = tryReadLatestSmsFrom(normalizedDispatch)
-        val messageBody = fullSmsBody ?: notifBody
+        val messageBody = inboxBody ?: notifBody
 
         val parsed = smsParser.parseDispatchMessage(messageBody)
             ?: smsParser.parseDispatchMessage(notifBody)
             ?: return
 
-        val rawForDisplay = fullSmsBody ?: notifBody
+        val rawForDisplay = inboxBody ?: notifBody
 
         mainHandler.post {
             try {
@@ -116,7 +116,7 @@ class DispatchNotificationListener : NotificationListenerService() {
                     room = parsed.room,
                     cad = parsed.cad
                 )
-            } catch (_: Throwable) { /* don't crash the listener */ }
+            } catch (_: Throwable) {}
         }
     }
 
@@ -137,12 +137,11 @@ class DispatchNotificationListener : NotificationListenerService() {
 
     /**
      * Reads the most recent SMS from the given normalized phone number out
-     * of the device inbox. Returns the full message body, or `null` if
-     * READ_SMS isn't granted or the message isn't in the inbox yet.
+     * of the device inbox. Only considers messages received within the last
+     * 2 minutes to avoid re-triggering on old dispatches.
      *
-     * This is the primary dispatch-data source because notification previews
-     * (especially Samsung) often truncate the message to the first line,
-     * losing the CALL TYPE / UNITS / address fields the parser needs.
+     * Returns the full message body, or `null` if READ_SMS isn't granted,
+     * the message isn't in the inbox yet, or there's no recent match.
      */
     private fun tryReadLatestSmsFrom(normalizedPhone: String): String? {
         try {
@@ -151,19 +150,19 @@ class DispatchNotificationListener : NotificationListenerService() {
             ) == PackageManager.PERMISSION_GRANTED
             if (!granted) return null
 
+            val cutoff = System.currentTimeMillis() - 120_000L
             val cursor = contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY),
-                null, null,
+                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
+                "${Telephony.Sms.DATE} > ?",
+                arrayOf(cutoff.toString()),
                 "${Telephony.Sms.DATE} DESC"
             ) ?: return null
 
             cursor.use {
-                var checked = 0
-                while (it.moveToNext() && checked < 5) {
+                while (it.moveToNext()) {
                     val address = it.getString(0) ?: continue
                     val body = it.getString(1) ?: continue
-                    checked++
                     if (normalizePhone(address) == normalizedPhone) {
                         return body
                     }
