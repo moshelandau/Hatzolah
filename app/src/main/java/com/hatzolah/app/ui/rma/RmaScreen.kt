@@ -38,7 +38,7 @@ fun RmaScreen(
         Button(
             onClick = {
                 if (uiState.rmaHotline.isNotBlank()) {
-                    val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:${uiState.rmaHotline}"))
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${uiState.rmaHotline}"))
                     context.startActivity(intent)
                 }
             },

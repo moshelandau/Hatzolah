@@ -1,7 +1,9 @@
 package com.hatzolah.app.ui.dashboard
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -54,11 +56,13 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            val uri = "google.navigation:q=${uiState.recentCallAddress.replace(" ", "+")}"
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-                                setPackage("com.google.android.apps.maps")
+                            val navUri = "geo:0,0?q=${Uri.encode(uiState.recentCallAddress)}"
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(navUri))
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: ActivityNotFoundException) {
+                                Toast.makeText(context, "No maps app installed", Toast.LENGTH_SHORT).show()
                             }
-                            context.startActivity(intent)
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {

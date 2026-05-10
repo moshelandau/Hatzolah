@@ -3,6 +3,7 @@ package com.hatzolah.app.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Telephony
 import com.hatzolah.app.data.database.entity.CallLog
 import com.hatzolah.app.data.repository.CallLogRepository
@@ -14,10 +15,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Monitors incoming SMS messages and triggers dispatch processing
- * when a message arrives from the configured dispatch number.
- */
 @AndroidEntryPoint
 class SmsReceiver : BroadcastReceiver() {
 
@@ -33,13 +30,22 @@ class SmsReceiver : BroadcastReceiver() {
         val dispatchNumber = preferencesManager.getDispatchNumber()
 
         if (dispatchNumber.isBlank()) return
+        val normalizedDispatch = normalizePhone(dispatchNumber)
 
         for (smsMessage in messages) {
-            val sender = smsMessage.displayOriginatingAddress ?: continue
             val body = smsMessage.displayMessageBody ?: continue
 
-            // Check if SMS is from the dispatch number
-            if (normalizePhone(sender) == normalizePhone(dispatchNumber)) {
+            // Use raw originatingAddress for reliable matching (not affected by contacts)
+            val rawSender = smsMessage.originatingAddress
+            val displaySender = smsMessage.displayOriginatingAddress
+
+            val senderMatches = when {
+                rawSender != null && normalizePhone(rawSender) == normalizedDispatch -> true
+                displaySender != null && normalizePhone(displaySender) == normalizedDispatch -> true
+                else -> false
+            }
+
+            if (senderMatches) {
                 handleDispatchMessage(context, body)
             }
         }
@@ -52,15 +58,32 @@ class SmsReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Create a call log entry for this dispatch
+                var callLogId = -1L
+
                 if (memberId != -1L) {
-                    callLogRepository.addCallLog(
+                    callLogId = callLogRepository.addCallLog(
                         CallLog(
                             memberId = memberId,
                             date = System.currentTimeMillis(),
                             dispatchAddress = parsed.address
                         )
                     )
+                }
+
+                // Start location tracking for mileage
+                if (callLogId > 0) {
+                    try {
+                        val trackingIntent = Intent(context, LocationTrackingService::class.java).apply {
+                            putExtra(LocationTrackingService.EXTRA_CALL_LOG_ID, callLogId)
+                        }
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(trackingIntent)
+                        } else {
+                            context.startService(trackingIntent)
+                        }
+                    } catch (_: Exception) {
+                        // Location tracking is optional — don't block dispatch
+                    }
                 }
 
                 notificationHelper.showDispatchNotification(
@@ -75,6 +98,6 @@ class SmsReceiver : BroadcastReceiver() {
     }
 
     private fun normalizePhone(phone: String): String {
-        return phone.replace(Regex("[^0-9+]"), "").takeLast(10)
+        return phone.replace(Regex("[^0-9]"), "").takeLast(10)
     }
 }
