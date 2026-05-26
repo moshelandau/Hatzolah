@@ -1,12 +1,17 @@
 package com.hatzolah.app.service
 
+import android.Manifest
 import android.app.Notification
 import android.app.Person
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
+import androidx.core.content.ContextCompat
 import com.hatzolah.app.util.DispatchNotificationHelper
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.EntryPoint
@@ -74,17 +79,18 @@ class DispatchNotificationListener : NotificationListenerService() {
         val smsParser = entryPoint.smsParser()
         val notificationHelper = entryPoint.notificationHelper()
 
-        val messageBody = bigText.ifBlank { text }
+        // Notification preview body — may be truncated on some SMS apps (Samsung).
+        val notifBody = bigText.ifBlank { text }
 
         // Match the sender across three independent signals:
-        // 1) Title-based digit match  — works when the sender is NOT in contacts;
+        // 1) Title-based digit match — works when the sender is NOT in contacts;
         //    SMS apps put the raw phone number in the notification title.
-        // 2) Person-extras match      — works when the dispatch number IS in contacts;
+        // 2) Person-extras match     — works when the dispatch number IS in contacts;
         //    the title becomes the contact name, but EXTRA_PEOPLE / EXTRA_PEOPLE_LIST
         //    still carries the underlying tel: URI for the sender.
-        // 3) Body-format match        — last-resort fallback; the dispatch SMS uses a
-        //    unique "KJ EMS … CALL TYPE:" format that the strict parser only validates
-        //    for real dispatches, so a parser hit is itself strong evidence.
+        // 3) Strict-format match     — last-resort fallback: if the preview itself has
+        //    the unique "KJ EMS … CALL TYPE:" header, only the dispatch service sends
+        //    that, so we accept even when neither sender check matched.
         val normalizedTitle = normalizePhone(title)
         val titleMatches = normalizedTitle.length >= 7 && (
                 normalizedTitle == normalizedDispatch ||
@@ -94,19 +100,31 @@ class DispatchNotificationListener : NotificationListenerService() {
         val personMatches = !titleMatches && extras != null &&
                 personExtrasMatchDispatch(extras, normalizedDispatch)
 
-        val parsed = smsParser.parseDispatchMessage(messageBody) ?: return
-        // If neither sender check matched, the strict-parser hit is what accepts it.
+        val strictFormatMatches = !titleMatches && !personMatches &&
+                smsParser.parseDispatchMessage(notifBody, requireCallType = true) != null
 
-        // Use a Handler to post to main thread instead of creating a new CoroutineScope.
-        // NotificationListenerService lives as long as the system wants - creating
-        // scopes per-notification leaks memory.
+        if (!titleMatches && !personMatches && !strictFormatMatches) return
+
+        // Primary: read the full SMS from the inbox (has all fields:
+        // address, call type, units, CAD, etc.). Falls back to the
+        // notification preview text if READ_SMS isn't granted or the
+        // message hasn't landed in the inbox yet.
+        val fullSmsBody = tryReadLatestSmsFrom(normalizedDispatch)
+        val messageBody = fullSmsBody ?: notifBody
+
+        val parsed = smsParser.parseDispatchMessage(messageBody)
+            ?: smsParser.parseDispatchMessage(notifBody)
+            ?: return
+
+        val rawForDisplay = fullSmsBody ?: notifBody
+
         mainHandler.post {
             try {
                 notificationHelper.showDispatchNotification(
                     context = applicationContext,
                     address = parsed.address,
                     callType = parsed.callType,
-                    rawMessage = messageBody,
+                    rawMessage = rawForDisplay,
                     units = parsed.units,
                     age = parsed.age,
                     room = parsed.room,
@@ -129,6 +147,46 @@ class DispatchNotificationListener : NotificationListenerService() {
                 packageName == "com.samsung.android.messaging" ||
                 packageName == "com.google.android.apps.messaging" ||
                 packageName == "com.android.mms"
+    }
+
+    /**
+     * Reads the most recent SMS from the given normalized phone number out
+     * of the device inbox. Returns the full message body, or `null` if
+     * READ_SMS isn't granted or the message isn't in the inbox yet.
+     *
+     * This is the primary dispatch-data source because notification previews
+     * (especially Samsung) often truncate the message to the first line,
+     * losing the CALL TYPE / UNITS / address fields the parser needs.
+     */
+    private fun tryReadLatestSmsFrom(normalizedPhone: String): String? {
+        try {
+            val granted = ContextCompat.checkSelfPermission(
+                applicationContext, Manifest.permission.READ_SMS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!granted) return null
+
+            val cursor = contentResolver.query(
+                Telephony.Sms.Inbox.CONTENT_URI,
+                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY),
+                null, null,
+                "${Telephony.Sms.DATE} DESC"
+            ) ?: return null
+
+            cursor.use {
+                var checked = 0
+                while (it.moveToNext() && checked < 5) {
+                    val address = it.getString(0) ?: continue
+                    val body = it.getString(1) ?: continue
+                    checked++
+                    if (normalizePhone(address) == normalizedPhone) {
+                        return body
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            Log.w("Hatzolah", "Could not read SMS inbox for dispatch body", e)
+        }
+        return null
     }
 
     private fun normalizePhone(phone: String): String {
