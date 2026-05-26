@@ -19,6 +19,11 @@
     <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Read contacts so we can recognise the dispatch sender when the user has
+         saved the dispatch number as a contact (SMS notifications then show the
+         contact's display name instead of the raw phone number). -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- Notification Permission -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

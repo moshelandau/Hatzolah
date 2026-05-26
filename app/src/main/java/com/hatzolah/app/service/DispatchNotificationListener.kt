@@ -4,9 +4,11 @@ import android.Manifest
 import android.app.Notification
 import android.app.Person
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.ContactsContract
 import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -26,6 +28,13 @@ import dagger.hilt.components.SingletonComponent
 class DispatchNotificationListener : NotificationListenerService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    // Cached display name for the current dispatch number — resolved via the
+    // device's contacts. We refresh it whenever the dispatch number changes
+    // (rare) and otherwise reuse it across notifications.
+    @Volatile private var cachedDispatchNumber: String = ""
+    @Volatile private var cachedDispatchContactName: String? = null
+    @Volatile private var cachedContactLookupAttempted: Boolean = false
 
     @EntryPoint
     @InstallIn(SingletonComponent::class)
@@ -82,15 +91,19 @@ class DispatchNotificationListener : NotificationListenerService() {
         // Notification preview body — may be truncated on some SMS apps (Samsung).
         val notifBody = bigText.ifBlank { text }
 
-        // Match the sender across three independent signals:
+        // Match the sender across four independent signals:
         // 1) Title-based digit match — works when the sender is NOT in contacts;
         //    SMS apps put the raw phone number in the notification title.
         // 2) Person-extras match     — works when the dispatch number IS in contacts;
-        //    the title becomes the contact name, but EXTRA_PEOPLE / EXTRA_PEOPLE_LIST
-        //    still carries the underlying tel: URI for the sender.
-        // 3) Strict-format match     — last-resort fallback: if the preview itself has
+        //    the title becomes the contact name, but some SMS apps still carry
+        //    a tel: URI in EXTRA_PEOPLE / EXTRA_PEOPLE_LIST.
+        // 3) Contacts lookup         — most reliable contact-aware match: resolve
+        //    the dispatch number to its display name via ContactsContract.PhoneLookup
+        //    and compare against the notification title. Catches the common
+        //    "saved as 'Hatzolah Dispatch' contact" case that breaks the first two.
+        // 4) Strict-format match     — last-resort fallback: if the preview itself has
         //    the unique "KJ EMS … CALL TYPE:" header, only the dispatch service sends
-        //    that, so we accept even when neither sender check matched.
+        //    that, so we accept even when no sender check matched.
         val normalizedTitle = normalizePhone(title)
         val titleMatches = normalizedTitle.length >= 7 && (
                 normalizedTitle == normalizedDispatch ||
@@ -100,10 +113,14 @@ class DispatchNotificationListener : NotificationListenerService() {
         val personMatches = !titleMatches && extras != null &&
                 personExtrasMatchDispatch(extras, normalizedDispatch)
 
-        val strictFormatMatches = !titleMatches && !personMatches &&
+        val contactNameMatches = !titleMatches && !personMatches &&
+                title.isNotBlank() &&
+                titleMatchesDispatchContact(title, dispatchNumber)
+
+        val strictFormatMatches = !titleMatches && !personMatches && !contactNameMatches &&
                 smsParser.parseDispatchMessage(notifBody, requireCallType = true) != null
 
-        if (!titleMatches && !personMatches && !strictFormatMatches) return
+        if (!titleMatches && !personMatches && !contactNameMatches && !strictFormatMatches) return
 
         // Primary: read the full SMS from the inbox (has all fields:
         // address, call type, units, CAD, etc.). Falls back to the
@@ -246,5 +263,59 @@ class DispatchNotificationListener : NotificationListenerService() {
         return candidate == normalizedDispatch ||
                 normalizedDispatch.endsWith(candidate) ||
                 candidate.endsWith(normalizedDispatch)
+    }
+
+    /**
+     * Returns true when [notifTitle] matches the display name stored against
+     * the dispatch number in the device's contacts. Lets us recognise the
+     * dispatch sender when the user has saved the number as a contact (so
+     * the SMS app shows the contact name in the notification title instead
+     * of the raw phone number).
+     */
+    private fun titleMatchesDispatchContact(notifTitle: String, dispatchNumber: String): Boolean {
+        val contactName = resolveDispatchContactName(dispatchNumber) ?: return false
+        val titleNorm = notifTitle.trim().lowercase()
+        val contactNorm = contactName.trim().lowercase()
+        if (titleNorm.isBlank() || contactNorm.isBlank()) return false
+        // Some SMS apps suffix the contact name (e.g. "Hatzolah Dispatch (3)"
+        // for unread count), so accept startsWith or substring containment.
+        return titleNorm == contactNorm ||
+                titleNorm.startsWith(contactNorm) ||
+                titleNorm.contains(contactNorm)
+    }
+
+    private fun resolveDispatchContactName(dispatchNumber: String): String? {
+        if (dispatchNumber.isBlank()) return null
+        if (cachedDispatchNumber == dispatchNumber && cachedContactLookupAttempted) {
+            return cachedDispatchContactName
+        }
+        cachedDispatchNumber = dispatchNumber
+        cachedContactLookupAttempted = true
+        cachedDispatchContactName = null
+
+        val granted = ContextCompat.checkSelfPermission(
+            applicationContext, Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) return null
+
+        try {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(dispatchNumber)
+            )
+            applicationContext.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    val name = c.getString(0)
+                    if (!name.isNullOrBlank()) cachedDispatchContactName = name
+                }
+            }
+        } catch (e: Throwable) {
+            Log.w("Hatzolah", "Contact lookup for dispatch number failed", e)
+        }
+        return cachedDispatchContactName
     }
 }
