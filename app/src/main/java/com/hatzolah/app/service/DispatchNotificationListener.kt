@@ -2,7 +2,9 @@ package com.hatzolah.app.service
 
 import android.Manifest
 import android.app.Notification
+import android.app.Person
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Telephony
@@ -59,42 +61,54 @@ class DispatchNotificationListener : NotificationListenerService() {
         val title: String
         val text: String
         val bigText: String
-        val subText: String
         if (extras != null) {
             title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
             text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString().orEmpty()
             bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
-            subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString().orEmpty()
         } else {
             val ticker = sbn.notification.tickerText?.toString().orEmpty()
             if (ticker.isBlank()) return
             title = ""
             text = ticker
             bigText = ticker
-            subText = ""
         }
 
         val normalizedDispatch = normalizePhone(dispatchNumber)
         if (normalizedDispatch.length < 7) return // avoid false positives on short strings
 
-        // Match the sender from the notification title (individual SMS notifications
-        // use the sender as the title). Require at least the last 7 digits to match
-        // to avoid false positives from group summaries or short digit sequences.
-        val normalizedTitle = normalizePhone(title)
-        val isDispatch = normalizedTitle == normalizedDispatch ||
-                (normalizedTitle.length >= 7 && normalizedDispatch.endsWith(normalizedTitle)) ||
-                (normalizedTitle.length >= 7 && normalizedTitle.endsWith(normalizedDispatch))
-
-        if (!isDispatch) return
-
         val smsParser = entryPoint.smsParser()
         val notificationHelper = entryPoint.notificationHelper()
+
+        // Notification preview body — may be truncated on some SMS apps (Samsung).
+        val notifBody = bigText.ifBlank { text }
+
+        // Match the sender across three independent signals:
+        // 1) Title-based digit match — works when the sender is NOT in contacts;
+        //    SMS apps put the raw phone number in the notification title.
+        // 2) Person-extras match     — works when the dispatch number IS in contacts;
+        //    the title becomes the contact name, but EXTRA_PEOPLE / EXTRA_PEOPLE_LIST
+        //    still carries the underlying tel: URI for the sender.
+        // 3) Strict-format match     — last-resort fallback: if the preview itself has
+        //    the unique "KJ EMS … CALL TYPE:" header, only the dispatch service sends
+        //    that, so we accept even when neither sender check matched.
+        val normalizedTitle = normalizePhone(title)
+        val titleMatches = normalizedTitle.length >= 7 && (
+                normalizedTitle == normalizedDispatch ||
+                normalizedDispatch.endsWith(normalizedTitle) ||
+                normalizedTitle.endsWith(normalizedDispatch))
+
+        val personMatches = !titleMatches && extras != null &&
+                personExtrasMatchDispatch(extras, normalizedDispatch)
+
+        val strictFormatMatches = !titleMatches && !personMatches &&
+                smsParser.parseDispatchMessage(notifBody, requireCallType = true) != null
+
+        if (!titleMatches && !personMatches && !strictFormatMatches) return
 
         // Primary: read the full SMS from the inbox (has all fields:
         // address, call type, units, CAD, etc.). Falls back to the
         // notification preview text if READ_SMS isn't granted or the
         // message hasn't landed in the inbox yet.
-        val notifBody = bigText.ifBlank { text }
         val fullSmsBody = tryReadLatestSmsFrom(normalizedDispatch)
         val messageBody = fullSmsBody ?: notifBody
 
@@ -181,5 +195,56 @@ class DispatchNotificationListener : NotificationListenerService() {
             digits = digits.substring(1)
         }
         return digits.takeLast(10)
+    }
+
+    /**
+     * Many SMS apps populate the notification's people-extras with a `tel:` URI for
+     * the sender even when the title shows the contact display name. This lets us
+     * recognise the dispatch number when the user has it saved as a contact.
+     */
+    private fun personExtrasMatchDispatch(
+        extras: android.os.Bundle,
+        normalizedDispatch: String
+    ): Boolean {
+        // EXTRA_PEOPLE_LIST (API 28+) — array of Person objects. Isolated below so
+        // ART doesn't try to verify the Person reference on minSdk 26/27.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            personListMatches(extras, normalizedDispatch)) return true
+
+        // EXTRA_PEOPLE (legacy) — String[] of URIs.
+        try {
+            val legacy = extras.getStringArray(Notification.EXTRA_PEOPLE)
+            if (legacy != null) {
+                for (uri in legacy) {
+                    if (uri != null && uriMatches(uri, normalizedDispatch)) return true
+                }
+            }
+        } catch (_: Throwable) { /* ignore */ }
+        return false
+    }
+
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.P)
+    private fun personListMatches(
+        extras: android.os.Bundle,
+        normalizedDispatch: String
+    ): Boolean {
+        return try {
+            @Suppress("DEPRECATION")
+            val people = extras.getParcelableArrayList<Person>(Notification.EXTRA_PEOPLE_LIST)
+                ?: return false
+            people.any { p ->
+                val uri = p.uri
+                uri != null && uriMatches(uri, normalizedDispatch)
+            }
+        } catch (_: Throwable) { false }
+    }
+
+    private fun uriMatches(uri: String, normalizedDispatch: String): Boolean {
+        if (!uri.startsWith("tel:", ignoreCase = true)) return false
+        val candidate = normalizePhone(uri.substring(4))
+        if (candidate.length < 7) return false
+        return candidate == normalizedDispatch ||
+                normalizedDispatch.endsWith(candidate) ||
+                candidate.endsWith(normalizedDispatch)
     }
 }
