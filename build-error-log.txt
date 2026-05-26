@@ -3,12 +3,12 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  2395338  21152 -rw-r--r--   1 runner   runner   21656679 May 26 07:10 app/build/outputs/apk/debug/app-debug.apk
+  2395378  21152 -rw-r--r--   1 runner   runner   21656679 May 26 15:40 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
-> Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
+
 > Task :app:compileDebugKotlin
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:216:61 'EXTRA_PEOPLE: String' is deprecated. Deprecated in Java
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:297:5 Parameter 'rawMessage' is never used
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 4m 17s
+BUILD SUCCESSFUL in 1m 38s
 41 actionable tasks: 41 executed
