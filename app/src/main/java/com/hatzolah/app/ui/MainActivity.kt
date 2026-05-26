@@ -339,7 +339,11 @@ class MainActivity : ComponentActivity() {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
             Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CALL_PHONE
+            Manifest.permission.CALL_PHONE,
+            // Needed so the dispatch-SMS listener can match the sender even when
+            // the dispatch number is saved as a contact (the SMS notification's
+            // title then shows the contact name, not the raw phone number).
+            Manifest.permission.READ_CONTACTS
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
