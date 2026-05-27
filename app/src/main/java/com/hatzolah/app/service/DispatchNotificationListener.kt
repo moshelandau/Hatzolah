@@ -15,6 +15,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.content.ContextCompat
 import com.hatzolah.app.util.DispatchNotificationHelper
+import com.hatzolah.app.util.NotificationDebugLog
 import com.hatzolah.app.util.PreferencesManager
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -54,17 +55,26 @@ class DispatchNotificationListener : NotificationListenerService() {
         // Skip group summary notifications — they contain aggregated text from
         // multiple conversations (e.g. "(844) 599-1212, (845) 481-0055") which
         // the parser cannot extract a real address from.
-        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
+            NotificationDebugLog.log(applicationContext, "SKIP pkg=$pkg reason=group_summary")
+            return
+        }
 
         val entryPoint = try {
             EntryPointAccessors.fromApplication(
                 applicationContext, ListenerEntryPoint::class.java
             )
-        } catch (_: Throwable) { return }
+        } catch (_: Throwable) {
+            NotificationDebugLog.log(applicationContext, "SKIP pkg=$pkg reason=entry_point_failed")
+            return
+        }
 
         val preferencesManager = entryPoint.preferencesManager()
         val dispatchNumber = preferencesManager.getDispatchNumber()
-        if (dispatchNumber.isBlank()) return
+        if (dispatchNumber.isBlank()) {
+            NotificationDebugLog.log(applicationContext, "SKIP pkg=$pkg reason=dispatch_number_blank")
+            return
+        }
 
         val extras = sbn.notification.extras
         val title: String
@@ -76,14 +86,20 @@ class DispatchNotificationListener : NotificationListenerService() {
             bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.ifEmpty { text } ?: text
         } else {
             val ticker = sbn.notification.tickerText?.toString().orEmpty()
-            if (ticker.isBlank()) return
+            if (ticker.isBlank()) {
+                NotificationDebugLog.log(applicationContext, "SKIP pkg=$pkg reason=no_extras_no_ticker")
+                return
+            }
             title = ""
             text = ticker
             bigText = ticker
         }
 
         val normalizedDispatch = normalizePhone(dispatchNumber)
-        if (normalizedDispatch.length < 7) return // avoid false positives on short strings
+        if (normalizedDispatch.length < 7) {
+            NotificationDebugLog.log(applicationContext, "SKIP pkg=$pkg reason=dispatch_too_short=$normalizedDispatch")
+            return
+        }
 
         val smsParser = entryPoint.smsParser()
         val notificationHelper = entryPoint.notificationHelper()
@@ -120,7 +136,22 @@ class DispatchNotificationListener : NotificationListenerService() {
         val strictFormatMatches = !titleMatches && !personMatches && !contactNameMatches &&
                 smsParser.parseDispatchMessage(notifBody, requireCallType = true) != null
 
-        if (!titleMatches && !personMatches && !contactNameMatches && !strictFormatMatches) return
+        val resolvedContactName = resolveDispatchContactName(dispatchNumber) ?: "(none)"
+        val titlePreview = title.take(40).ifBlank { "(empty)" }
+        val bodyPreview = notifBody.replace('\n', ' ').take(60).ifBlank { "(empty)" }
+        val matchSummary = "title=$titleMatches person=$personMatches contact=$contactNameMatches strict=$strictFormatMatches"
+
+        if (!titleMatches && !personMatches && !contactNameMatches && !strictFormatMatches) {
+            NotificationDebugLog.log(
+                applicationContext,
+                "REJECT pkg=$pkg title='$titlePreview' titleDigits=$normalizedTitle dispatchDigits=$normalizedDispatch resolvedContact='$resolvedContactName' bodyLen=${notifBody.length} body='$bodyPreview' $matchSummary"
+            )
+            return
+        }
+        NotificationDebugLog.log(
+            applicationContext,
+            "ACCEPT pkg=$pkg title='$titlePreview' resolvedContact='$resolvedContactName' bodyLen=${notifBody.length} $matchSummary"
+        )
 
         // Primary: read the full SMS from the inbox (has all fields:
         // address, call type, units, CAD, etc.). Falls back to the
@@ -149,6 +180,16 @@ class DispatchNotificationListener : NotificationListenerService() {
                 )
             } catch (_: Throwable) { /* don't crash the listener */ }
         }
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        NotificationDebugLog.log(applicationContext, "LISTENER connected")
+    }
+
+    override fun onListenerDisconnected() {
+        NotificationDebugLog.log(applicationContext, "LISTENER disconnected")
+        super.onListenerDisconnected()
     }
 
     override fun onDestroy() {

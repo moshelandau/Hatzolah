@@ -364,6 +364,54 @@ private fun SettingsTab(uiState: AdminUiState, viewModel: AdminViewModel) {
                 }
             )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Notification listener diagnostic log — shows every SMS-app
+        // notification the dispatch listener has inspected, with per-signal
+        // match results. Use this to debug "popup didn't fire" complaints.
+        var showNotifLog by remember { mutableStateOf(false) }
+        var notifLogText by remember { mutableStateOf("") }
+        OutlinedButton(
+            onClick = {
+                notifLogText = com.hatzolah.app.util.NotificationDebugLog.readLog(context)
+                showNotifLog = true
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.BugReport, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("View Notification Log")
+        }
+
+        if (showNotifLog) {
+            AlertDialog(
+                onDismissRequest = { showNotifLog = false },
+                title = { Text("Notification Listener Log") },
+                text = {
+                    Column {
+                        Text(
+                            text = notifLogText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp)
+                                .verticalScroll(rememberScrollState())
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showNotifLog = false }) { Text("Close") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        com.hatzolah.app.util.NotificationDebugLog.clearLog(context)
+                        notifLogText = "Log cleared."
+                    }) { Text("Clear Log") }
+                }
+            )
+        }
     }
 }
 
