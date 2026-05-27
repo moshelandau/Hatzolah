@@ -54,6 +54,22 @@ class DispatchNotificationHelper @Inject constructor(
         room: String = "",
         cad: String = ""
     ) {
+        // Diagnostic snapshot of the three settings that can silently suppress the
+        // dispatch popup on modern Android: notifications permission, this channel's
+        // importance, and the full-screen-intent permission.
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val notifsEnabled = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+            val channelImportance = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.getNotificationChannel(HatzolahApp.DISPATCH_CHANNEL_ID)?.importance ?: -1
+            } else -1
+            val fullScreenOk = if (Build.VERSION.SDK_INT >= 34) nm.canUseFullScreenIntent() else true
+            NotificationDebugLog.log(
+                context,
+                "popup.entry notifsEnabled=$notifsEnabled channelImportance=$channelImportance fullScreenOk=$fullScreenOk"
+            )
+        } catch (_: Throwable) { /* diagnostic only */ }
+
         // Detect same-CAD update: if the incoming dispatch has the same CAD as the
         // currently active dispatch but NEW units were added, we want to re-alert
         // with the new units highlighted rather than treating it as a fresh call.
@@ -129,6 +145,7 @@ class DispatchNotificationHelper @Inject constructor(
         } catch (_: Throwable) { null }
 
         try {
+            NotificationDebugLog.log(context, "popup.step=intents.start")
             val alertIntent = DispatchAlertActivity.createIntent(
                 context, address, callType, rawMessage, units, age, room, cad
             )
@@ -186,15 +203,22 @@ class DispatchNotificationHelper @Inject constructor(
                 .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800))
                 .build()
 
+            NotificationDebugLog.log(context, "popup.step=pre-notify channel=${HatzolahApp.DISPATCH_CHANNEL_ID}")
             notificationManager.notify(DISPATCH_NOTIFICATION_ID, notification)
+            NotificationDebugLog.log(context, "popup.step=post-notify")
 
             // Play alert sound with proper resource management - Bugs #2, #46
             playAlertSound(context)
+            NotificationDebugLog.log(context, "popup.step=post-sound")
 
             // Try direct launch - won't crash if blocked - Bug #13
             try {
                 context.startActivity(alertIntent)
-            } catch (_: Throwable) { /* background launch blocked; notification handles it */ }
+                NotificationDebugLog.log(context, "popup.step=startActivity_ok")
+            } catch (t: Throwable) {
+                NotificationDebugLog.log(context, "popup.step=startActivity_blocked ${t.javaClass.simpleName}")
+                /* background launch blocked; notification handles it */
+            }
         } finally {
             try { if (wl?.isHeld == true) wl.release() } catch (_: Throwable) { /* already released */ }
         }

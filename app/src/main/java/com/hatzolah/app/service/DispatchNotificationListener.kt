@@ -178,7 +178,13 @@ class DispatchNotificationListener : NotificationListenerService() {
                     room = parsed.room,
                     cad = parsed.cad
                 )
-            } catch (_: Throwable) { /* don't crash the listener */ }
+                NotificationDebugLog.log(applicationContext, "POPUP completed addr='${parsed.address.take(40)}'")
+            } catch (t: Throwable) {
+                NotificationDebugLog.log(
+                    applicationContext,
+                    "POPUP EXCEPTION ${t.javaClass.simpleName}: ${t.message?.take(200)}"
+                )
+            }
         }
     }
 
