@@ -3,7 +3,7 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8656934  21156 -rw-r--r--   1 runner   runner   21662283 May 31 15:09 app/build/outputs/apk/debug/app-debug.apk
+  8917948  21160 -rw-r--r--   1 runner   runner   21664495 May 31 19:53 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
 > Task :app:kspDebugKotlin
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 39s
+BUILD SUCCESSFUL in 1m 40s
 41 actionable tasks: 41 executed
