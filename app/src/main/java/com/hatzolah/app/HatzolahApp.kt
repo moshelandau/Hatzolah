@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.media.AudioAttributes
 import android.net.Uri
+import com.hatzolah.app.service.DispatchListenerKeepalive
 import com.hatzolah.app.util.CrashLogger
 import dagger.hilt.android.HiltAndroidApp
 
@@ -14,6 +15,7 @@ class HatzolahApp : Application() {
     companion object {
         const val DISPATCH_CHANNEL_ID = "dispatch_alerts"
         const val TRACKING_CHANNEL_ID = "location_tracking"
+        const val KEEPALIVE_CHANNEL_ID = "dispatch_keepalive"
     }
 
     override fun onCreate() {
@@ -21,6 +23,9 @@ class HatzolahApp : Application() {
         CrashLogger(this).install()
         createNotificationChannels()
         setDefaultSettings()
+        // Start the listener keepalive immediately so the foreground service
+        // is up before Android has a chance to put the process to sleep.
+        DispatchListenerKeepalive.start(this)
     }
 
     private fun setDefaultSettings() {
@@ -67,7 +72,22 @@ class HatzolahApp : Application() {
             description = getString(R.string.tracking_channel_description)
         }
 
+        // Silent low-importance channel for the keepalive foreground service.
+        // Has to exist so the user can see (and can't accidentally disable
+        // away) the persistent "Hatzolah is listening" notification.
+        val keepaliveChannel = NotificationChannel(
+            KEEPALIVE_CHANNEL_ID,
+            "Dispatch Listener",
+            NotificationManager.IMPORTANCE_MIN
+        ).apply {
+            description = "Keeps Hatzolah watching for dispatch SMS. Do not disable."
+            setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
+        }
+
         notificationManager.createNotificationChannel(dispatchChannel)
         notificationManager.createNotificationChannel(trackingChannel)
+        notificationManager.createNotificationChannel(keepaliveChannel)
     }
 }

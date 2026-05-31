@@ -30,6 +30,13 @@
     <!-- Foreground Service for location tracking -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Foreground Service that keeps the dispatch-SMS notification listener
+         alive (otherwise Samsung silently puts the app to sleep and we stop
+         receiving dispatches). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Restart the keepalive service after device reboot so we don't have
+         to wait for the user to manually open the app. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Wake lock for lock screen notifications -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -147,6 +154,27 @@
             android:name=".service.LocationTrackingService"
             android:foregroundServiceType="location"
             android:exported="false" />
+
+        <!-- Permanent keepalive service that prevents Samsung / OEMs from
+             putting the app to sleep and severing the notification listener. -->
+        <service
+            android:name=".service.DispatchListenerKeepalive"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
+        <!-- Restart the keepalive service on boot. -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Notification Listener for dispatch SMS (works on Samsung) -->
         <service
