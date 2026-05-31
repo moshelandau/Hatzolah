@@ -85,6 +85,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestRequiredPermissions()
 
+        // Restart the listener keepalive every time the user opens the app —
+        // safe to call repeatedly, and the foreground-service start is
+        // guaranteed-allowed here (user-foreground launch context) even when
+        // OEM rules block the Application.onCreate() attempt.
+        com.hatzolah.app.service.DispatchListenerKeepalive.start(this)
+
         // Show active dispatch only once on fresh app launch
         if (!hasShownDispatch) {
             showActiveDispatchIfAny()
