@@ -99,9 +99,25 @@ class MainActivity : ComponentActivity() {
             HatzolahTheme {
                 var isLoggedIn by remember { mutableStateOf(preferencesManager.isLoggedIn()) }
                 var showNotifAccessPrompt by remember { mutableStateOf(false) }
+                var showFullScreenIntentPrompt by remember { mutableStateOf(false) }
+                val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
 
                 LaunchedEffect(Unit) {
                     showNotifAccessPrompt = !isNotificationListenerEnabled()
+                    showFullScreenIntentPrompt = !canUseFullScreenIntentPermission()
+                }
+
+                // Re-check on resume so the prompt disappears as soon as the
+                // user returns from the system settings page with it enabled.
+                DisposableEffect(lifecycleOwner) {
+                    val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+                        if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                            showNotifAccessPrompt = !isNotificationListenerEnabled()
+                            showFullScreenIntentPrompt = !canUseFullScreenIntentPermission()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                 }
 
                 val smsImportState by _smsImportState
@@ -187,6 +203,38 @@ class MainActivity : ComponentActivity() {
                         onAuthSuccess = { isLoggedIn = true }
                     )
                 }
+
+                // Surfaces as an overlay dialog on top of whatever screen is
+                // showing — sticks around until the permission is actually
+                // granted (re-checked on each ON_RESUME above).
+                if (showFullScreenIntentPrompt && isLoggedIn) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text("Allow dispatch popup over lock screen") },
+                        text = {
+                            Text(
+                                "On Android 14+, Hatzolah needs the \"Full-screen notifications\" " +
+                                "permission to pop the dispatch alert over the lock screen. Without " +
+                                "this, you'll only see a notification banner until you unlock.\n\n" +
+                                "Tap \"Open Settings\", then turn ON the toggle for Hatzolah."
+                            )
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                try {
+                                    startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT))
+                                } catch (_: Throwable) {
+                                    try {
+                                        startActivity(Intent(
+                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                            Uri.fromParts("package", packageName, null)
+                                        ))
+                                    } catch (_: Throwable) {}
+                                }
+                            }) { Text("Open Settings") }
+                        }
+                    )
+                }
             }
         }
     }
@@ -235,6 +283,13 @@ class MainActivity : ComponentActivity() {
         val cn = ComponentName(this, DispatchNotificationListener::class.java)
         val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
         return flat.contains(cn.flattenToString())
+    }
+
+    /** Pre-Android-14 doesn't gate full-screen intents, so treat as granted. */
+    private fun canUseFullScreenIntentPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true
+        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        return nm.canUseFullScreenIntent()
     }
 
     /**
@@ -356,13 +411,11 @@ class MainActivity : ComponentActivity() {
             permissionLauncher.launch(needed.toTypedArray())
         }
 
-        // Check full-screen intent permission for Android 14+
-        if (Build.VERSION.SDK_INT >= 34) {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            if (!nm.canUseFullScreenIntent()) {
-                startActivity(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT))
-            }
-        }
+        // Full-screen-intent permission (Android 14+) is now surfaced via the
+        // FullScreenIntentPrompt dialog in setContent rather than auto-launching
+        // the system settings screen here — the dialog explains why it's needed
+        // so users don't dismiss it without realising the dispatch popup
+        // requires it to fire over the lock screen.
     }
 }
 
