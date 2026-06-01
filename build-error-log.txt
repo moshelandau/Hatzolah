@@ -3,14 +3,14 @@
 > Task :app:checkKotlinGradlePluginConfigurationErrors
 
 === APK CHECK ===
-  8917948  21160 -rw-r--r--   1 runner   runner   21664495 May 31 19:53 app/build/outputs/apk/debug/app-debug.apk
+  8656455  21160 -rw-r--r--   1 runner   runner   21665511 Jun  1 14:56 app/build/outputs/apk/debug/app-debug.apk
 
 === LAST 40 LINES ===
 > Task :app:kspDebugKotlin
 > Task :app:kaptGenerateStubsDebugKotlin
 > Task :app:kaptDebugKotlin
 > Task :app:compileDebugKotlin
-w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:280:61 'EXTRA_PEOPLE: String' is deprecated. Deprecated in Java
+w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/service/DispatchNotificationListener.kt:311:61 'EXTRA_PEOPLE: String' is deprecated. Deprecated in Java
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:297:5 Parameter 'rawMessage' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/DispatchAlertActivity.kt:316:9 Variable 'scope' is never used
 w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app/ui/analytics/AnalyticsScreen.kt:54:57 'Assignment: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Assignment
@@ -44,5 +44,5 @@ w: file:///home/runner/work/Hatzolah/Hatzolah/app/src/main/java/com/hatzolah/app
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 1m 40s
+BUILD SUCCESSFUL in 1m 39s
 41 actionable tasks: 41 executed
