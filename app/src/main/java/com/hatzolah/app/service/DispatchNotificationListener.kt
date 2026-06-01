@@ -37,6 +37,14 @@ class DispatchNotificationListener : NotificationListenerService() {
     @Volatile private var cachedDispatchContactName: String? = null
     @Volatile private var cachedContactLookupAttempted: Boolean = false
 
+    companion object {
+        // Reject any dispatch whose underlying SMS is older than this window.
+        // Anything older is almost certainly a re-broadcast of an old unread
+        // notification (e.g. Samsung Messages re-posts when the user clears
+        // the notification shade) and is unsafe to surface as a fresh call.
+        private const val MAX_DISPATCH_AGE_MS = 10 * 60_000L  // 10 minutes
+    }
+
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface ListenerEntryPoint {
@@ -157,7 +165,22 @@ class DispatchNotificationListener : NotificationListenerService() {
         // address, call type, units, CAD, etc.). Falls back to the
         // notification preview text if READ_SMS isn't granted or the
         // message hasn't landed in the inbox yet.
-        val fullSmsBody = tryReadLatestSmsFrom(normalizedDispatch)
+        val inboxRow = tryReadLatestSmsFrom(normalizedDispatch)
+
+        // Hard guard against stale dispatches: if the inbox row is older
+        // than MAX_DISPATCH_AGE_MS, this is almost certainly a re-broadcast
+        // of an unread notification (Samsung Messages re-posts when the user
+        // clears the shade). Firing the popup for an 11-hour-old call could
+        // send a responder to a long-resolved scene — abort.
+        if (inboxRow != null && inboxRow.ageMs > MAX_DISPATCH_AGE_MS) {
+            NotificationDebugLog.log(
+                applicationContext,
+                "REJECT pkg=$pkg reason=sms_too_old ageMin=${inboxRow.ageMs / 60_000}"
+            )
+            return
+        }
+
+        val fullSmsBody = inboxRow?.body
         val messageBody = fullSmsBody ?: notifBody
 
         val parsed = smsParser.parseDispatchMessage(messageBody)
@@ -215,14 +238,21 @@ class DispatchNotificationListener : NotificationListenerService() {
 
     /**
      * Reads the most recent SMS from the given normalized phone number out
-     * of the device inbox. Returns the full message body, or `null` if
+     * of the device inbox. Returns the row's body + age-in-ms, or `null` if
      * READ_SMS isn't granted or the message isn't in the inbox yet.
      *
      * This is the primary dispatch-data source because notification previews
      * (especially Samsung) often truncate the message to the first line,
      * losing the CALL TYPE / UNITS / address fields the parser needs.
+     *
+     * The age is used to discard stale dispatches: when the user clears the
+     * notification shade, some SMS apps re-broadcast their unread notification
+     * to the listener, which we'd otherwise treat as a fresh dispatch even
+     * though the underlying SMS is hours old.
      */
-    private fun tryReadLatestSmsFrom(normalizedPhone: String): String? {
+    private data class InboxRow(val body: String, val ageMs: Long)
+
+    private fun tryReadLatestSmsFrom(normalizedPhone: String): InboxRow? {
         try {
             val granted = ContextCompat.checkSelfPermission(
                 applicationContext, Manifest.permission.READ_SMS
@@ -231,7 +261,7 @@ class DispatchNotificationListener : NotificationListenerService() {
 
             val cursor = contentResolver.query(
                 Telephony.Sms.Inbox.CONTENT_URI,
-                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY),
+                arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE),
                 null, null,
                 "${Telephony.Sms.DATE} DESC"
             ) ?: return null
@@ -241,9 +271,10 @@ class DispatchNotificationListener : NotificationListenerService() {
                 while (it.moveToNext() && checked < 5) {
                     val address = it.getString(0) ?: continue
                     val body = it.getString(1) ?: continue
+                    val date = it.getLong(2)
                     checked++
                     if (normalizePhone(address) == normalizedPhone) {
-                        return body
+                        return InboxRow(body, System.currentTimeMillis() - date)
                     }
                 }
             }
