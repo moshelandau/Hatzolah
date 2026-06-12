@@ -137,6 +137,32 @@ object AppModule {
         }
     }
 
+    /**
+     * Adds Emergency Department - Northern Westchester Hospital (door code
+     * 810*) to existing installs. Guarded with NOT EXISTS so re-running or
+     * mixing with onCreate's seed insert doesn't create a duplicate row.
+     */
+    private val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val name = "Emergency Department - Northern Westchester Hospital"
+            db.execSQL(
+                "INSERT INTO hospitals (name, address, erLocation, accessCodes, kosherRoomLocation, patientAssistanceNotes, latitude, longitude, mainHotline, obHotline, departmentHotlines, communicationSystem, bedAvailability, additionalNotes, facilityType) " +
+                        "SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? " +
+                        "WHERE NOT EXISTS (SELECT 1 FROM hospitals WHERE name = ?)",
+                arrayOf(
+                    name,
+                    "400 E Main St, Mt Kisco, NY 10549",
+                    "ER 810*",
+                    "", "", "",
+                    41.2078, -73.7198,
+                    "", "", "", "", "", "",
+                    Hospital.FACILITY_HOSPITAL,
+                    name
+                )
+            )
+        }
+    }
+
     private val MIGRATION_3_4 = object : Migration(3, 4) {
         override fun migrate(db: SupportSQLiteDatabase) {
             // Pre-populate the team roster for existing installs. Skips rows
@@ -280,7 +306,8 @@ object AppModule {
                     arrayOf("St Lukes Newburgh", "70 Dubois St, Newburgh, NY 12550", "ER door 357#", "", "", "", "41.503706", "-74.014901", "845-568-2305", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Morgan Stanley Children's Hospital", "3959 Broadway, New York, NY 10032", "", "", "", "", "40.8403", "-73.9418", "", "", "", "", "", "Columbia Pediatrics", Hospital.FACILITY_HOSPITAL),
                     arrayOf("NewYork-Presbyterian Emergency Room", "622 W 168th St, New York, NY 10032", "", "", "", "", "40.8421", "-73.9422", "", "", "", "", "", "Columbia Adults", Hospital.FACILITY_HOSPITAL),
-                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "", Hospital.FACILITY_HOSPITAL)
+                    arrayOf("Montefiore Medical Center Moses Campus ER", "3415 Bainbridge Ave, Bronx, NY 10467", "", "", "", "", "40.8811", "-73.8814", "718-920-5731", "", "", "", "", "", Hospital.FACILITY_HOSPITAL),
+                    arrayOf("Emergency Department - Northern Westchester Hospital", "400 E Main St, Mt Kisco, NY 10549", "ER 810*", "", "", "", "41.2078", "-73.7198", "", "", "", "", "", "", Hospital.FACILITY_HOSPITAL)
                 )
                 for (h in hospitals) {
                     db.execSQL(insertSql, h)
@@ -289,7 +316,7 @@ object AppModule {
                 // the data stays in sync with MIGRATION_4_5.
                 seedUrgentCares(db)
             }
-        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+        }).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
             .fallbackToDestructiveMigration().build()
     }
 
